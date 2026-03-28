@@ -1,12 +1,12 @@
-import { Router, type Request, type Response } from 'express';
-import { pool } from '../db/index.js';
-import { zoneGuard, supervisorOnly } from '../middleware/auth.js';
-import { cacheGet, cacheSet, cacheDel } from '../lib/redis.js';
+import { Router, type Request, type Response } from "express";
+import { pool } from "../db/index.js";
+import { zoneGuard, supervisorOnly } from "../middleware/auth.js";
+import { cacheGet, cacheSet, cacheDel } from "../lib/redis.js";
 import {
   acknowledgeAlert,
   resolveAlert,
   getOpenAlertsForSensor,
-} from '../services/alerts.js';
+} from "../services/alerts.js";
 
 const router = Router();
 
@@ -22,17 +22,17 @@ const router = Router();
  * @query {number} limit - Max results, default 50
  * @returns {Array} Array of alerts with sensor + rule information
  */
-router.get('/api/alerts', zoneGuard, async (req: Request, res: Response) => {
+router.get("/api/alerts", zoneGuard, async (req: Request, res: Response) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const status = req.query.status || 'open';
+    const status = req.query.status || "open";
     const limit = Math.min(Number(req.query.limit) || 50, 500);
 
     // Build cache key based on user role, zones, status, and limit
-    const cacheKey = `alerts:${req.user.role}:${(req.user.zones || []).sort().join(',')}:${status}:${limit}`;
+    const cacheKey = `alerts:${req.user.role}:${(req.user.zones || []).sort().join(",")}:${status}:${limit}`;
 
     // Try to get from cache first
     const cached = await cacheGet(cacheKey);
@@ -40,8 +40,7 @@ router.get('/api/alerts', zoneGuard, async (req: Request, res: Response) => {
       return res.json(cached);
     }
 
-    const userZones =
-      req.user.role === 'supervisor' ? [] : req.user.zones;
+    const userZones = req.user.role === "supervisor" ? [] : req.user.zones;
 
     let query = `
       SELECT 
@@ -87,8 +86,8 @@ router.get('/api/alerts', zoneGuard, async (req: Request, res: Response) => {
 
     res.json(result.rows);
   } catch (error) {
-    console.error('[GET /api/alerts] Error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("[GET /api/alerts] Error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -97,17 +96,19 @@ router.get('/api/alerts', zoneGuard, async (req: Request, res: Response) => {
  *
  * Fetch a single alert with full details
  */
-router.get('/api/alerts/:id', zoneGuard, async (req: Request, res: Response) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+router.get(
+  "/api/alerts/:id",
+  zoneGuard,
+  async (req: Request, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
 
-    const alertId = req.params.id;
-    const userZones =
-      req.user.role === 'supervisor' ? [] : req.user.zones;
+      const alertId = req.params.id;
+      const userZones = req.user.role === "supervisor" ? [] : req.user.zones;
 
-    let query = `
+      let query = `
       SELECT 
         a.id,
         a.anomaly_id,
@@ -135,40 +136,41 @@ router.get('/api/alerts/:id', zoneGuard, async (req: Request, res: Response) => 
       WHERE a.id = $1
     `;
 
-    const params: unknown[] = [alertId];
+      const params: unknown[] = [alertId];
 
-    // Data layer isolation
-    if (userZones.length > 0) {
-      query += ` AND z.id = ANY($2)`;
-      params.push(userZones);
-    }
+      // Data layer isolation
+      if (userZones.length > 0) {
+        query += ` AND z.id = ANY($2)`;
+        params.push(userZones);
+      }
 
-    const result = await pool.query(query, params);
+      const result = await pool.query(query, params);
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Alert not found' });
-    }
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Alert not found" });
+      }
 
-    const alert = result.rows[0];
+      const alert = result.rows[0];
 
-    // Fetch audit log
-    const auditResult = await pool.query(
-      `SELECT from_status, to_status, changed_by, changed_at
+      // Fetch audit log
+      const auditResult = await pool.query(
+        `SELECT from_status, to_status, changed_by, changed_at
        FROM alert_audit_log
        WHERE alert_id = $1
        ORDER BY changed_at ASC`,
-      [alertId]
-    );
+        [alertId],
+      );
 
-    res.json({
-      ...alert,
-      audit_log: auditResult.rows,
-    });
-  } catch (error) {
-    console.error('[GET /api/alerts/:id] Error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+      res.json({
+        ...alert,
+        audit_log: auditResult.rows,
+      });
+    } catch (error) {
+      console.error("[GET /api/alerts/:id] Error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
 
 /**
  * PATCH /api/alerts/:id/acknowledge
@@ -176,12 +178,12 @@ router.get('/api/alerts/:id', zoneGuard, async (req: Request, res: Response) => 
  * Mark an alert as acknowledged
  */
 router.patch(
-  '/api/alerts/:id/acknowledge',
+  "/api/alerts/:id/acknowledge",
   zoneGuard,
   async (req: Request, res: Response) => {
     try {
       if (!req.user) {
-        return res.status(401).json({ error: 'Unauthorized' });
+        return res.status(401).json({ error: "Unauthorized" });
       }
 
       const alertId = req.params.id;
@@ -190,19 +192,21 @@ router.patch(
       await acknowledgeAlert(alertId, req.user!.id);
 
       // Invalidate alerts cache after state change
-      if (req.user.role === 'supervisor') {
-        await cacheDel(`alerts:supervisor:::${req.query.status || 'open'}:`);
+      if (req.user.role === "supervisor") {
+        await cacheDel(`alerts:supervisor:::${req.query.status || "open"}:`);
       } else {
-        const zoneKey = (req.user.zones || []).sort().join(',');
-        await cacheDel(`alerts:operator:${zoneKey}:${req.query.status || 'open'}:`);
+        const zoneKey = (req.user.zones || []).sort().join(",");
+        await cacheDel(
+          `alerts:operator:${zoneKey}:${req.query.status || "open"}:`,
+        );
       }
 
-      res.json({ status: 'acknowledged' });
+      res.json({ status: "acknowledged" });
     } catch (error) {
-      console.error('[PATCH /api/alerts/:id/acknowledge] Error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      console.error("[PATCH /api/alerts/:id/acknowledge] Error:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-  }
+  },
 );
 
 /**
@@ -211,12 +215,12 @@ router.patch(
  * Resolve an alert
  */
 router.patch(
-  '/api/alerts/:id/resolve',
+  "/api/alerts/:id/resolve",
   zoneGuard,
   async (req: Request, res: Response) => {
     try {
       if (!req.user) {
-        return res.status(401).json({ error: 'Unauthorized' });
+        return res.status(401).json({ error: "Unauthorized" });
       }
 
       const alertId = req.params.id;
@@ -224,12 +228,12 @@ router.patch(
       // @ts-ignore - Express types conflict
       await resolveAlert(alertId, req.user!.id);
 
-      res.json({ status: 'resolved' });
+      res.json({ status: "resolved" });
     } catch (error) {
-      console.error('[PATCH /api/alerts/:id/resolve] Error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      console.error("[PATCH /api/alerts/:id/resolve] Error:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-  }
+  },
 );
 
 /**
@@ -237,12 +241,15 @@ router.patch(
  *
  * Fetch anomalies (mostly debugging/analytics)
  */
-router.get('/api/anomalies', supervisorOnly, async (req: Request, res: Response) => {
-  try {
-    const limit = Math.min(Number(req.query.limit) || 100, 1000);
+router.get(
+  "/api/anomalies",
+  supervisorOnly,
+  async (req: Request, res: Response) => {
+    try {
+      const limit = Math.min(Number(req.query.limit) || 100, 1000);
 
-    const result = await pool.query(
-      `SELECT 
+      const result = await pool.query(
+        `SELECT 
         id,
         reading_id,
         sensor_id,
@@ -253,14 +260,15 @@ router.get('/api/anomalies', supervisorOnly, async (req: Request, res: Response)
       FROM anomalies
       ORDER BY detected_at DESC
       LIMIT $1`,
-      [limit]
-    );
+        [limit],
+      );
 
-    res.json(result.rows);
-  } catch (error) {
-    console.error('[GET /api/anomalies] Error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+      res.json(result.rows);
+    } catch (error) {
+      console.error("[GET /api/anomalies] Error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
 
 export default router;

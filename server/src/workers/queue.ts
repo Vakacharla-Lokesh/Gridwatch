@@ -1,9 +1,9 @@
-import { EventEmitter } from 'events';
-import { runAnomalyDetectionForReadings } from './anomaly.js';
+import { EventEmitter } from "events";
+import { runAnomalyDetectionForReadings } from "./anomaly.js";
 
 /**
  * In-memory async queue for anomaly detection
- * 
+ *
  * Pattern: Fire-and-forget
  * - Ingest endpoint writes to DB (durable), then pushes reading IDs to queue
  * - Queue listener processes asynchronously without blocking the response
@@ -25,7 +25,7 @@ export const anomalyQueue = {
    * Listener will pick them up immediately and process async
    */
   push: (readingIds: (number | string)[]) => {
-    emitter.emit('process', {
+    emitter.emit("process", {
       readingIds,
       timestamp: Date.now(),
     } as AnomalyQueueMessage);
@@ -36,23 +36,23 @@ export const anomalyQueue = {
  * Queue listener - processes anomaly detection batches
  * This runs independently and does NOT block the HTTP response
  */
-emitter.on('process', async (message: AnomalyQueueMessage) => {
+emitter.on("process", async (message: AnomalyQueueMessage) => {
   try {
     const { readingIds, timestamp } = message;
     const processingTime = Date.now() - timestamp;
 
     console.log(
-      `🔍 [Anomaly Worker] Processing ${readingIds.length} readings (queued for ${processingTime}ms)`
+      `🔍 [Anomaly Worker] Processing ${readingIds.length} readings (queued for ${processingTime}ms)`,
     );
 
     // Run anomaly detection for this batch of readings
     await runAnomalyDetectionForReadings(readingIds);
 
     console.log(
-      `✅ [Anomaly Worker] Completed batch of ${readingIds.length} readings`
+      `✅ [Anomaly Worker] Completed batch of ${readingIds.length} readings`,
     );
   } catch (error) {
-    console.error('❌ [Anomaly Worker] Error processing batch:', error);
+    console.error("❌ [Anomaly Worker] Error processing batch:", error);
     // In production: push to dead-letter queue for retry logic
     // For now: logged as-is for manual recovery
   }

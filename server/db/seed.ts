@@ -87,11 +87,11 @@ function generateAnomalousReading() {
 
 async function initializeSchema(client: any) {
   console.log("📋 Initializing database schema...");
-  
+
   try {
     // Enable uuid extension
     await client.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
-    
+
     // Create zones table
     await client.query(`
       CREATE TABLE IF NOT EXISTS zones (
@@ -270,7 +270,7 @@ async function seed() {
 
   try {
     console.log("🌱 Starting GridWatch seed...\n");
-    
+
     // Initialize schema first
     await initializeSchema(client);
 

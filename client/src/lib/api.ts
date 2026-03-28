@@ -1,15 +1,9 @@
-import type {
-  Sensor,
-  Alert,
-  HistoryResponse,
-  Suppression,
-} from './types';
+import type { Sensor, Alert, HistoryResponse, Suppression } from "./types";
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
-// Utility to get auth token (from localStorage for now, in production would use secure cookies)
 function getAuthToken(): string {
-  return localStorage.getItem('auth_token') || 'test-token';
+  return localStorage.getItem("auth_token") || "test-token";
 }
 
 /**
@@ -54,15 +48,15 @@ export async function fetchSensorHistory(
   page = 1,
   limit = 50,
   from?: string,
-  to?: string
+  to?: string,
 ): Promise<HistoryResponse> {
   const params = new URLSearchParams({
     page: page.toString(),
     limit: limit.toString(),
   });
 
-  if (from) params.append('from', from);
-  if (to) params.append('to', to);
+  if (from) params.append("from", from);
+  if (to) params.append("to", to);
 
   const response = await fetch(
     `${API_URL}/api/sensors/${sensorId}/history?${params}`,
@@ -70,7 +64,7 @@ export async function fetchSensorHistory(
       headers: {
         Authorization: `Bearer ${getAuthToken()}`,
       },
-    }
+    },
   );
 
   if (!response.ok) {
@@ -83,7 +77,7 @@ export async function fetchSensorHistory(
 /**
  * Fetch all alerts
  */
-export async function fetchAlerts(status = 'open'): Promise<Alert[]> {
+export async function fetchAlerts(status = "open"): Promise<Alert[]> {
   const response = await fetch(`${API_URL}/api/alerts?status=${status}`, {
     headers: {
       Authorization: `Bearer ${getAuthToken()}`,
@@ -119,10 +113,10 @@ export async function fetchAlert(alertId: string): Promise<Alert> {
  */
 export async function acknowledgeAlert(alertId: string): Promise<void> {
   const response = await fetch(`${API_URL}/api/alerts/${alertId}/acknowledge`, {
-    method: 'PATCH',
+    method: "PATCH",
     headers: {
       Authorization: `Bearer ${getAuthToken()}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
   });
 
@@ -136,10 +130,10 @@ export async function acknowledgeAlert(alertId: string): Promise<void> {
  */
 export async function resolveAlert(alertId: string): Promise<void> {
   const response = await fetch(`${API_URL}/api/alerts/${alertId}/resolve`, {
-    method: 'PATCH',
+    method: "PATCH",
     headers: {
       Authorization: `Bearer ${getAuthToken()}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
   });
 
@@ -153,10 +147,10 @@ export async function resolveAlert(alertId: string): Promise<void> {
  */
 export async function fetchSuppressions(
   sensorId: string,
-  activeOnly = false
+  activeOnly = false,
 ): Promise<Suppression[]> {
   const params = new URLSearchParams();
-  if (activeOnly) params.append('active_only', 'true');
+  if (activeOnly) params.append("active_only", "true");
 
   const response = await fetch(
     `${API_URL}/api/sensors/${sensorId}/suppressions?${params}`,
@@ -164,7 +158,7 @@ export async function fetchSuppressions(
       headers: {
         Authorization: `Bearer ${getAuthToken()}`,
       },
-    }
+    },
   );
 
   if (!response.ok) {
@@ -181,13 +175,13 @@ export async function createSuppression(
   sensorId: string,
   startTime: string,
   endTime: string,
-  reason?: string
+  reason?: string,
 ): Promise<Suppression> {
   const response = await fetch(`${API_URL}/api/suppressions`, {
-    method: 'POST',
+    method: "POST",
     headers: {
       Authorization: `Bearer ${getAuthToken()}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       sensor_id: sensorId,
@@ -208,15 +202,12 @@ export async function createSuppression(
  * Delete a suppression
  */
 export async function deleteSuppression(suppressionId: string): Promise<void> {
-  const response = await fetch(
-    `${API_URL}/api/suppressions/${suppressionId}`,
-    {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${getAuthToken()}`,
-      },
-    }
-  );
+  const response = await fetch(`${API_URL}/api/suppressions/${suppressionId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${getAuthToken()}`,
+    },
+  });
 
   if (!response.ok && response.status !== 204) {
     throw new Error(`Failed to delete suppression: ${response.statusText}`);

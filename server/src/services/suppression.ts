@@ -1,4 +1,4 @@
-import { pool } from '../db/index.js';
+import { pool } from "../db/index.js";
 
 /**
  * Suppression service
@@ -24,7 +24,9 @@ export interface SuppressionWindow {
  * @param sensorId - UUID of the sensor
  * @returns true if an active suppression window exists, false otherwise
  */
-export async function isCurrentlySuppressed(sensorId: string): Promise<boolean> {
+export async function isCurrentlySuppressed(
+  sensorId: string,
+): Promise<boolean> {
   try {
     const result = await pool.query(
       `SELECT 1 FROM suppressions
@@ -32,7 +34,7 @@ export async function isCurrentlySuppressed(sensorId: string): Promise<boolean> 
        AND start_time <= NOW()
        AND end_time >= NOW()
        LIMIT 1`,
-      [sensorId]
+      [sensorId],
     );
 
     return result.rows.length > 0;
@@ -62,21 +64,23 @@ export async function createSuppression(
   createdBy: string,
   startTime: string,
   endTime: string,
-  reason?: string
+  reason?: string,
 ): Promise<SuppressionWindow> {
   try {
     const result = await pool.query(
       `INSERT INTO suppressions (sensor_id, created_by, start_time, end_time, reason)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id, sensor_id, created_by, start_time, end_time, reason`,
-      [sensorId, createdBy, startTime, endTime, reason || null]
+      [sensorId, createdBy, startTime, endTime, reason || null],
     );
 
     if (result.rows.length === 0) {
-      throw new Error('Failed to create suppression');
+      throw new Error("Failed to create suppression");
     }
 
-    console.log(`📍 [Suppression] Created for sensor ${sensorId} until ${endTime}`);
+    console.log(
+      `📍 [Suppression] Created for sensor ${sensorId} until ${endTime}`,
+    );
 
     return result.rows[0];
   } catch (error) {
@@ -89,7 +93,7 @@ export async function createSuppression(
  * Get all active suppressions for a sensor
  */
 export async function getActiveSuppressionsForSensor(
-  sensorId: string
+  sensorId: string,
 ): Promise<SuppressionWindow[]> {
   try {
     const result = await pool.query(
@@ -99,14 +103,14 @@ export async function getActiveSuppressionsForSensor(
        AND start_time <= NOW()
        AND end_time >= NOW()
        ORDER BY start_time DESC`,
-      [sensorId]
+      [sensorId],
     );
 
     return result.rows;
   } catch (error) {
     console.error(
       `Error fetching active suppressions for sensor ${sensorId}:`,
-      error
+      error,
     );
     throw error;
   }
@@ -115,21 +119,23 @@ export async function getActiveSuppressionsForSensor(
 /**
  * Get all suppressions for a sensor (active and expired)
  */
-export async function getSuppressionHistory(sensorId: string): Promise<SuppressionWindow[]> {
+export async function getSuppressionHistory(
+  sensorId: string,
+): Promise<SuppressionWindow[]> {
   try {
     const result = await pool.query(
       `SELECT id, sensor_id, created_by, start_time, end_time, reason
        FROM suppressions
        WHERE sensor_id = $1
        ORDER BY start_time DESC`,
-      [sensorId]
+      [sensorId],
     );
 
     return result.rows;
   } catch (error) {
     console.error(
       `Error fetching suppression history for sensor ${sensorId}:`,
-      error
+      error,
     );
     throw error;
   }
@@ -144,12 +150,13 @@ export async function getSuppressionHistory(sensorId: string): Promise<Suppressi
  * @param suppressionId - UUID of suppression to delete
  * @returns true if deletion succeeded, false if suppression not found
  */
-export async function deleteSuppression(suppressionId: string): Promise<boolean> {
+export async function deleteSuppression(
+  suppressionId: string,
+): Promise<boolean> {
   try {
-    const result = await pool.query(
-      `DELETE FROM suppressions WHERE id = $1`,
-      [suppressionId]
-    );
+    const result = await pool.query(`DELETE FROM suppressions WHERE id = $1`, [
+      suppressionId,
+    ]);
 
     if (result.rowCount === 0) {
       console.warn(`Suppression ${suppressionId} not found for deletion`);

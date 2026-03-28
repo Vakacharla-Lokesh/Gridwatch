@@ -1,7 +1,7 @@
-import { Router, type Request, type Response } from 'express';
-import { z } from 'zod';
-import { pool } from '../db/index.js';
-import { anomalyQueue } from '../workers/queue.js';
+import { Router, type Request, type Response } from "express";
+import { z } from "zod";
+import { pool } from "../db/index.js";
+import { anomalyQueue } from "../workers/queue.js";
 
 const router = Router();
 
@@ -10,15 +10,29 @@ const router = Router();
  * Ensures type safety and clear error messages for invalid inputs
  */
 const ReadingSchema = z.object({
-  sensor_id: z.string().uuid('Invalid sensor_id format'),
-  timestamp: z.string().datetime('Invalid timestamp format'),
-  voltage: z.number().finite('voltage must be a finite number').nullable().optional(),
-  current: z.number().finite('current must be a finite number').nullable().optional(),
-  temperature: z.number().finite('temperature must be a finite number').nullable().optional(),
-  status_code: z.string().max(50, 'status_code too long').optional(),
+  sensor_id: z.string().uuid("Invalid sensor_id format"),
+  timestamp: z.string().datetime("Invalid timestamp format"),
+  voltage: z
+    .number()
+    .finite("voltage must be a finite number")
+    .nullable()
+    .optional(),
+  current: z
+    .number()
+    .finite("current must be a finite number")
+    .nullable()
+    .optional(),
+  temperature: z
+    .number()
+    .finite("temperature must be a finite number")
+    .nullable()
+    .optional(),
+  status_code: z.string().max(50, "status_code too long").optional(),
 });
 
-const BatchSchema = z.array(ReadingSchema).max(1000, 'Batch size exceeds 1000 readings');
+const BatchSchema = z
+  .array(ReadingSchema)
+  .max(1000, "Batch size exceeds 1000 readings");
 
 export interface BulkInsertResult {
   accepted: number;
@@ -47,7 +61,7 @@ export interface BulkInsertResult {
  * @returns {400} – Validation error (invalid schema)
  * @returns {500} – Database error
  */
-router.post('/api/ingest', async (req: Request, res: Response) => {
+router.post("/api/ingest", async (req: Request, res: Response) => {
   const startTime = Date.now();
 
   try {
@@ -55,7 +69,7 @@ router.post('/api/ingest', async (req: Request, res: Response) => {
     const batch = BatchSchema.parse(req.body);
 
     if (batch.length === 0) {
-      return res.status(400).json({ error: 'Empty batch' });
+      return res.status(400).json({ error: "Empty batch" });
     }
 
     // Step 2: Bulk INSERT — durable write to PostgreSQL
@@ -73,23 +87,23 @@ router.post('/api/ingest', async (req: Request, res: Response) => {
     });
 
     console.log(
-      `📥 [Ingest] Accepted ${readingIds.length} readings in ${processingTimeMs}ms`
+      `📥 [Ingest] Accepted ${readingIds.length} readings in ${processingTimeMs}ms`,
     );
   } catch (error) {
     if (error instanceof z.ZodError) {
       // Schema validation error - client mistake
       return res.status(400).json({
-        error: 'Invalid batch format',
+        error: "Invalid batch format",
         details: error.issues.map((issue) => ({
-          path: issue.path.join('.'),
+          path: issue.path.join("."),
           message: issue.message,
         })),
       });
     }
 
     // Unexpected server error
-    console.error('[Ingest] Error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("[Ingest] Error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -105,7 +119,7 @@ router.post('/api/ingest', async (req: Request, res: Response) => {
  * @returns {number[]} Array of inserted reading IDs
  */
 async function bulkInsertReadings(
-  readings: z.infer<typeof ReadingSchema>[]
+  readings: z.infer<typeof ReadingSchema>[],
 ): Promise<number[]> {
   if (readings.length === 0) return [];
 

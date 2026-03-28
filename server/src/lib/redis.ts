@@ -2,12 +2,15 @@
  * Upstash Redis Client
  * Used for caching, session storage, Socket.IO rooms, and token blacklist
  */
-import { Redis } from '@upstash/redis';
-import { getEnv } from '../config/env.js';
+import { Redis } from "@upstash/redis";
+import { getEnv } from "../config/env.js";
 
 // Initialize Redis client from Upstash environment variables (via centralized config)
 const env = getEnv();
-export const redis = env.upstashRedisUrl && env.upstashRedisToken ? new Redis({ url: env.upstashRedisUrl, token: env.upstashRedisToken }) : null;
+export const redis =
+  env.upstashRedisUrl && env.upstashRedisToken
+    ? new Redis({ url: env.upstashRedisUrl, token: env.upstashRedisToken })
+    : null;
 
 /**
  * Check if Redis is available
@@ -22,7 +25,11 @@ export function isRedisAvailable(): boolean {
  * @param value Data to cache
  * @param ttlSeconds Time to live in seconds (default: 300s = 5 min)
  */
-export async function cacheSet(key: string, value: unknown, ttlSeconds = 300): Promise<void> {
+export async function cacheSet(
+  key: string,
+  value: unknown,
+  ttlSeconds = 300,
+): Promise<void> {
   if (!redis) return;
   try {
     await redis.setex(key, ttlSeconds, JSON.stringify(value));
@@ -67,7 +74,11 @@ export async function cacheDel(key: string): Promise<void> {
  * @param rooms Array of room names
  * @param ttlSeconds TTL in seconds (default: 24h for session)
  */
-export async function storeSocketRooms(socketId: string, rooms: string[], ttlSeconds = 86400): Promise<void> {
+export async function storeSocketRooms(
+  socketId: string,
+  rooms: string[],
+  ttlSeconds = 86400,
+): Promise<void> {
   if (!redis) return;
   try {
     const key = `socket:${socketId}`;
@@ -99,12 +110,15 @@ export async function getSocketRooms(socketId: string): Promise<string[]> {
  * @param token JWT token
  * @param expiresIn Token expiry time in seconds
  */
-export async function blacklistToken(token: string, expiresIn: number): Promise<void> {
+export async function blacklistToken(
+  token: string,
+  expiresIn: number,
+): Promise<void> {
   if (!redis) return;
   try {
     const key = `blacklist:${token}`;
     // TTL should match token expiry to auto-cleanup
-    await redis.setex(key, expiresIn, 'true');
+    await redis.setex(key, expiresIn, "true");
   } catch (error) {
     console.warn(`Failed to blacklist token:`, error);
   }
@@ -133,7 +147,11 @@ export async function isTokenBlacklisted(token: string): Promise<boolean> {
  * @param sessionData Session information
  * @param ttlSeconds TTL in seconds (default: 24h)
  */
-export async function storeUserSession(userId: string, sessionData: Record<string, unknown>, ttlSeconds = 86400): Promise<void> {
+export async function storeUserSession(
+  userId: string,
+  sessionData: Record<string, unknown>,
+  ttlSeconds = 86400,
+): Promise<void> {
   if (!redis) return;
   try {
     const key = `session:${userId}`;
@@ -147,7 +165,9 @@ export async function storeUserSession(userId: string, sessionData: Record<strin
  * Get user session data
  * @param userId User ID
  */
-export async function getUserSession(userId: string): Promise<Record<string, unknown> | null> {
+export async function getUserSession(
+  userId: string,
+): Promise<Record<string, unknown> | null> {
   if (!redis) return null;
   try {
     const key = `session:${userId}`;
@@ -166,6 +186,6 @@ export function getRedisStatus(): { available: boolean; url?: string } {
   const { hasRedis } = getEnv();
   return {
     available: isRedisAvailable(),
-    url: hasRedis ? '[CONFIGURED]' : '[NOT CONFIGURED]',
+    url: hasRedis ? "[CONFIGURED]" : "[NOT CONFIGURED]",
   };
 }

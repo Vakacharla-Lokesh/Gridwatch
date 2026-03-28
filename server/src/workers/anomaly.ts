@@ -1,7 +1,7 @@
-import { pool } from '../db/index.js';
-import { createAlert } from '../services/alerts.js';
-import { updateSensorState } from '../services/sensor.js';
-import { isCurrentlySuppressed } from '../services/suppression.js';
+import { pool } from "../db/index.js";
+import { createAlert } from "../services/alerts.js";
+import { updateSensorState } from "../services/sensor.js";
+import { isCurrentlySuppressed } from "../services/suppression.js";
 
 /**
  * Anomaly Detection Worker
@@ -15,9 +15,9 @@ import { isCurrentlySuppressed } from '../services/suppression.js';
 
 interface SensorRule {
   id: string;
-  rule_type: 'threshold' | 'rate_of_change' | 'pattern_absence';
+  rule_type: "threshold" | "rate_of_change" | "pattern_absence";
   config: Record<string, unknown>;
-  severity: 'warning' | 'critical';
+  severity: "warning" | "critical";
 }
 
 interface Reading {
@@ -33,7 +33,7 @@ interface Reading {
  * Fetches readings and rules, runs all detectors
  */
 export async function runAnomalyDetectionForReadings(
-  readingIds: (number | string)[]
+  readingIds: (number | string)[],
 ): Promise<void> {
   if (readingIds.length === 0) return;
 
@@ -43,7 +43,7 @@ export async function runAnomalyDetectionForReadings(
       `SELECT id, sensor_id, voltage, current, temperature
        FROM readings
        WHERE id = ANY($1)`,
-      [readingIds]
+      [readingIds],
     );
 
     const readings = readingsResult.rows as Reading[];
@@ -63,10 +63,10 @@ export async function runAnomalyDetectionForReadings(
     }
 
     console.log(
-      `✅ [Anomaly Worker] Completed detection for ${readings.length} readings`
+      `✅ [Anomaly Worker] Completed detection for ${readings.length} readings`,
     );
   } catch (error) {
-    console.error('[Anomaly Worker] Fatal error:', error);
+    console.error("[Anomaly Worker] Fatal error:", error);
     throw error;
   }
 }
@@ -76,7 +76,7 @@ export async function runAnomalyDetectionForReadings(
  */
 async function processReadingsForSensor(
   sensorId: string,
-  readings: Reading[]
+  readings: Reading[],
 ): Promise<void> {
   try {
     // Fetch all rules for this sensor
@@ -84,7 +84,7 @@ async function processReadingsForSensor(
       `SELECT id, rule_type, config, severity
        FROM sensor_rules
        WHERE sensor_id = $1`,
-      [sensorId]
+      [sensorId],
     );
 
     const rules = rulesResult.rows as SensorRule[];
@@ -115,9 +115,9 @@ async function processReadingsForSensor(
 async function checkThreshold(
   reading: Reading,
   rules: SensorRule[],
-  sensorSuppressed: boolean
+  sensorSuppressed: boolean,
 ): Promise<void> {
-  const thresholdRules = rules.filter((r) => r.rule_type === 'threshold');
+  const thresholdRules = rules.filter((r) => r.rule_type === "threshold");
 
   for (const rule of thresholdRules) {
     const config = rule.config as {
@@ -136,7 +136,7 @@ async function checkThreshold(
     // Check bounds
     if (value < min || value > max) {
       console.log(
-        `⚠️  [Anomaly] Threshold breach: ${field}=${value} outside [${min}, ${max}]`
+        `⚠️  [Anomaly] Threshold breach: ${field}=${value} outside [${min}, ${max}]`,
       );
 
       // Create anomaly
@@ -144,23 +144,22 @@ async function checkThreshold(
         `INSERT INTO anomalies (reading_id, sensor_id, rule_id, rule_type, suppressed)
          VALUES ($1, $2, $3, 'threshold', $4)
          RETURNING id`,
-        [reading.id, reading.sensor_id, rule.id, sensorSuppressed]
+        [reading.id, reading.sensor_id, rule.id, sensorSuppressed],
       );
 
       const anomalyId = anomalyResult.rows[0].id;
 
       // Mark reading as having anomaly
-      await pool.query(
-        'UPDATE readings SET has_anomaly = true WHERE id = $1',
-        [reading.id]
-      );
+      await pool.query("UPDATE readings SET has_anomaly = true WHERE id = $1", [
+        reading.id,
+      ]);
 
       // Create alert if not suppressed
       if (!sensorSuppressed) {
         const alert = await createAlert(
           anomalyId,
           reading.sensor_id,
-          rule.severity
+          rule.severity,
         );
 
         // Update sensor state to severity level
@@ -168,7 +167,9 @@ async function checkThreshold(
           await updateSensorState(reading.sensor_id, rule.severity);
         }
       } else {
-        console.log(`🔇 [Anomaly] Anomaly suppressed for sensor ${reading.sensor_id}`);
+        console.log(
+          `🔇 [Anomaly] Anomaly suppressed for sensor ${reading.sensor_id}`,
+        );
       }
     }
   }
@@ -182,9 +183,9 @@ async function checkThreshold(
 async function checkRateOfChange(
   reading: Reading,
   rules: SensorRule[],
-  sensorSuppressed: boolean
+  sensorSuppressed: boolean,
 ): Promise<void> {
-  const rateRules = rules.filter((r) => r.rule_type === 'rate_of_change');
+  const rateRules = rules.filter((r) => r.rule_type === "rate_of_change");
 
   for (const rule of rateRules) {
     const config = rule.config as {
@@ -205,7 +206,7 @@ async function checkRateOfChange(
       `SELECT ${field} FROM readings
        WHERE sensor_id = $1 AND id < $2
        ORDER BY id DESC LIMIT $3`,
-      [reading.sensor_id, reading.id, lookback_count]
+      [reading.sensor_id, reading.id, lookback_count],
     );
 
     if (prevResult.rows.length < 1) continue;
@@ -219,13 +220,14 @@ async function checkRateOfChange(
     if (avgPrevious === 0) continue; // Avoid division issues
 
     // Calculate percentage change
-    const changePct = Math.abs((currentValue - avgPrevious) / avgPrevious) * 100;
+    const changePct =
+      Math.abs((currentValue - avgPrevious) / avgPrevious) * 100;
 
     if (changePct > threshold_pct) {
       console.log(
         `⚠️  [Anomaly] Rate of change: ${field} changed ${changePct.toFixed(
-          1
-        )}% (threshold: ${threshold_pct}%)`
+          1,
+        )}% (threshold: ${threshold_pct}%)`,
       );
 
       // Create anomaly
@@ -233,23 +235,22 @@ async function checkRateOfChange(
         `INSERT INTO anomalies (reading_id, sensor_id, rule_id, rule_type, suppressed)
          VALUES ($1, $2, $3, 'rate_of_change', $4)
          RETURNING id`,
-        [reading.id, reading.sensor_id, rule.id, sensorSuppressed]
+        [reading.id, reading.sensor_id, rule.id, sensorSuppressed],
       );
 
       const anomalyId = anomalyResult.rows[0].id;
 
       // Mark reading as having anomaly
-      await pool.query(
-        'UPDATE readings SET has_anomaly = true WHERE id = $1',
-        [reading.id]
-      );
+      await pool.query("UPDATE readings SET has_anomaly = true WHERE id = $1", [
+        reading.id,
+      ]);
 
       // Create alert if not suppressed
       if (!sensorSuppressed) {
         const alert = await createAlert(
           anomalyId,
           reading.sensor_id,
-          rule.severity
+          rule.severity,
         );
 
         // Update sensor state to severity level
@@ -257,7 +258,9 @@ async function checkRateOfChange(
           await updateSensorState(reading.sensor_id, rule.severity);
         }
       } else {
-        console.log(`🔇 [Anomaly] Anomaly suppressed for sensor ${reading.sensor_id}`);
+        console.log(
+          `🔇 [Anomaly] Anomaly suppressed for sensor ${reading.sensor_id}`,
+        );
       }
     }
   }

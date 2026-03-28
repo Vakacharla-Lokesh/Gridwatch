@@ -1,5 +1,5 @@
-import { pool } from '../db/index.js';
-import { emitAlertEvent } from '../realtime/emitter.js';
+import { pool } from "../db/index.js";
+import { emitAlertEvent } from "../realtime/emitter.js";
 
 /**
  * Auto-Escalation Worker
@@ -36,7 +36,7 @@ export async function checkEscalation(): Promise<void> {
          AND NOT EXISTS (
            SELECT 1 FROM escalation_log el WHERE el.alert_id = a.id
          )
-       ORDER BY a.created_at ASC`
+       ORDER BY a.created_at ASC`,
     );
 
     const escalatable = escalatableResult.rows;
@@ -44,17 +44,17 @@ export async function checkEscalation(): Promise<void> {
     if (escalatable.length === 0) return;
 
     console.log(
-      `⏰ [Escalation] Found ${escalatable.length} alerts eligible for escalation`
+      `⏰ [Escalation] Found ${escalatable.length} alerts eligible for escalation`,
     );
 
     // Find a supervisor (prefer one, or any supervisor)
     const supervisorResult = await pool.query(
-      `SELECT id, email FROM users WHERE role = 'supervisor' LIMIT 1`
+      `SELECT id, email FROM users WHERE role = 'supervisor' LIMIT 1`,
     );
 
     if (supervisorResult.rows.length === 0) {
       console.warn(
-        `⚠️  [Escalation] No supervisors found, cannot escalate alerts`
+        `⚠️  [Escalation] No supervisors found, cannot escalate alerts`,
       );
       return;
     }
@@ -71,13 +71,13 @@ export async function checkEscalation(): Promise<void> {
            VALUES ($1, $2)
            ON CONFLICT (alert_id) DO NOTHING
            RETURNING alert_id`,
-          [alert.id, supervisor.id]
+          [alert.id, supervisor.id],
         );
 
         if (escalationResult.rows.length === 0) {
           // Someone else already escalated this alert
           console.log(
-            `ℹ️  [Escalation] Alert ${alert.id} already escalated by another process`
+            `ℹ️  [Escalation] Alert ${alert.id} already escalated by another process`,
           );
           continue;
         }
@@ -88,12 +88,12 @@ export async function checkEscalation(): Promise<void> {
            SET assigned_to = $1, escalated = TRUE
            WHERE id = $2 AND escalated = FALSE
            RETURNING id, sensor_id, severity`,
-          [supervisor.id, alert.id]
+          [supervisor.id, alert.id],
         );
 
         if (updateResult.rows.length === 0) {
           console.log(
-            `ℹ️  [Escalation] Alert ${alert.id} already escalated (race condition)`
+            `ℹ️  [Escalation] Alert ${alert.id} already escalated (race condition)`,
           );
           continue;
         }
@@ -104,33 +104,34 @@ export async function checkEscalation(): Promise<void> {
         await pool.query(
           `INSERT INTO alert_audit_log (alert_id, from_status, to_status)
            VALUES ($1, 'open', 'open')`,
-          [alert.id]
+          [alert.id],
         );
 
         // Get sensor name for real-time event
         const sensorNameResult = await pool.query(
-          'SELECT name FROM sensors WHERE id = $1',
-          [updatedAlert.sensor_id]
+          "SELECT name FROM sensors WHERE id = $1",
+          [updatedAlert.sensor_id],
         );
-        const sensorName = sensorNameResult.rows[0]?.name || `Sensor ${updatedAlert.sensor_id}`;
+        const sensorName =
+          sensorNameResult.rows[0]?.name || `Sensor ${updatedAlert.sensor_id}`;
 
         // Emit real-time event (Phase 5)
         emitAlertEvent({
           alert_id: alert.id,
           sensor_id: updatedAlert.sensor_id,
           zone_id: alert.zone_id,
-          type: 'escalated',
+          type: "escalated",
           severity: updatedAlert.severity,
           sensor_name: sensorName,
           assigned_to: supervisor.id,
-          status: 'open',
+          status: "open",
           timestamp: new Date().toISOString(),
         });
 
         console.log(
           `🚨 [Escalation] Alert ${alert.id} escalated to supervisor ${supervisor.email} (open for ${Math.floor(
-            (Date.now() - new Date(alert.created_at).getTime()) / 60000
-          )} min)`
+            (Date.now() - new Date(alert.created_at).getTime()) / 60000,
+          )} min)`,
         );
       } catch (error) {
         console.error(`Error escalating alert ${alert.id}:`, error);
@@ -139,7 +140,7 @@ export async function checkEscalation(): Promise<void> {
 
     console.log(`✅ [Escalation] Escalation check completed`);
   } catch (error) {
-    console.error('[Escalation Worker] Error:', error);
+    console.error("[Escalation Worker] Error:", error);
     // Don't throw — worker runs on timer and should recover
   }
 }
@@ -153,13 +154,13 @@ export function startEscalationWorker(): NodeJS.Timer {
 
   // Run immediately first
   checkEscalation().catch((err) =>
-    console.error('[Escalation] Initial check failed:', err)
+    console.error("[Escalation] Initial check failed:", err),
   );
 
   // Then run every 30 seconds
   const timer = setInterval(() => {
     checkEscalation().catch((err) =>
-      console.error('[Escalation] Periodic check failed:', err)
+      console.error("[Escalation] Periodic check failed:", err),
     );
   }, 30_000); // 30 seconds
 

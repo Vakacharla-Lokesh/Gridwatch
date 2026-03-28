@@ -1,6 +1,6 @@
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { SensorDetail } from '@/components/SensorDetail';
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { SensorDetail } from "@/components/SensorDetail";
 
 export function SensorDetailPage() {
   const navigate = useNavigate();
@@ -10,7 +10,7 @@ export function SensorDetailPage() {
       <div className="flex items-center gap-4">
         <Button
           variant="ghost"
-          onClick={() => navigate('/')}
+          onClick={() => navigate("/")}
           className="mb-2"
         >
           ← Back to Dashboard

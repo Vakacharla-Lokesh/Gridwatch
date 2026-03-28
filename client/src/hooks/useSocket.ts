@@ -3,29 +3,6 @@ import { useEffect, useState, useRef } from "react";
 import io, { Socket } from "socket.io-client";
 import { useAuth } from "@/lib/auth";
 
-/**
- * Hook for Socket.IO real-time updates
- *
- * Handles connection/disconnection and provides type-safe event listeners
- *
- * Usage:
- * ```tsx
- * const { socket, isConnected } = useSocket();
- *
- * useEffect(() => {
- *   if (!socket) return;
- *
- *   socket.on('sensor-state-change', (event) => {
- *     console.log('Sensor updated:', event.data);
- *   });
- *
- *   return () => {
- *     socket.off('sensor-state-change');
- *   };
- * }, [socket]);
- * ```
- */
-
 const SOCKET_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 export interface UseSocketOptions {
@@ -33,18 +10,23 @@ export interface UseSocketOptions {
   role?: "operator" | "supervisor";
   zones?: string[];
   autoConnect?: boolean;
-  skipAuth?: boolean; // if true, skip auth requirement check
+  skipAuth?: boolean;
 }
 
 export function useSocket(options: UseSocketOptions = {}) {
-  const { userId, role, zones = [], autoConnect = true, skipAuth = false } = options;
+  const {
+    userId,
+    role,
+    zones = [],
+    autoConnect = true,
+    skipAuth = false,
+  } = options;
 
   const [, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
 
-  // Only connect if we have user data OR skipAuth is true
   const shouldConnect = autoConnect && (skipAuth || (userId && role));
 
   useEffect(() => {
@@ -96,23 +78,6 @@ export function useSocket(options: UseSocketOptions = {}) {
   return { socket: socketRef.current, isConnected, error };
 }
 
-/**
- * Hook for listening to sensor state changes
- *
- * Usage:
- * ```tsx
- * const { sensors, error } = useSensorUpdates();
- *
- * return (
- *   <div>
- *     {sensors.map(sensor => (
- *       <SensorCard key={sensor.sensor_id} sensor={sensor} />
- *     ))}
- *   </div>
- * );
- * ```
- */
-
 export interface SensorStateEvent {
   sensor_id: string;
   zone_id: string;
@@ -127,7 +92,7 @@ export function useSensorUpdates() {
   const { socket, isConnected } = useSocket({
     userId: user?.id,
     role: user?.role,
-    zones: [], // TODO: Get zones from user or API
+    zones: user?.zones || [],
     skipAuth: false,
   });
   const [sensors, setSensors] = useState<SensorStateEvent[]>([]);
@@ -165,19 +130,6 @@ export function useSensorUpdates() {
   return { sensors, error, isConnected };
 }
 
-/**
- * Hook for listening to alert events
- *
- * Usage:
- * ```tsx
- * const { alerts, error } = useAlertUpdates();
- *
- * return (
- *   <AlertPanel alerts={alerts} />
- * );
- * ```
- */
-
 export interface AlertEvent {
   alert_id: string;
   sensor_id: string;
@@ -195,7 +147,7 @@ export function useAlertUpdates() {
   const { socket, isConnected } = useSocket({
     userId: user?.id,
     role: user?.role,
-    zones: [], // TODO: Get zones from user or API
+    zones: user?.zones || [],
     skipAuth: false,
   });
   const [alerts, setAlerts] = useState<AlertEvent[]>([]);
@@ -228,9 +180,6 @@ export function useAlertUpdates() {
   return { alerts, error, isConnected };
 }
 
-/**
- * Hook for listening to suppression events
- */
 
 export interface SuppressionEvent {
   suppression_id: string;
@@ -247,7 +196,7 @@ export function useSuppressionUpdates() {
   const { socket, isConnected } = useSocket({
     userId: user?.id,
     role: user?.role,
-    zones: [], // TODO: Get zones from user or API
+    zones: user?.zones || [],
     skipAuth: false,
   });
   const [suppressions, setSuppressions] = useState<SuppressionEvent[]>([]);
@@ -278,17 +227,6 @@ export function useSuppressionUpdates() {
   return { suppressions, error, isConnected };
 }
 
-/**
- * Hook for custom event listening
- *
- * Usage:
- * ```tsx
- * useSocketEvent('my-custom-event', (data) => {
- *   console.log('Received:', data);
- * });
- * ```
- */
-
 export function useSocketEvent<T = any>(
   event: string,
   handler: (data: T) => void,
@@ -297,7 +235,7 @@ export function useSocketEvent<T = any>(
   const { socket, isConnected } = useSocket({
     userId: user?.id,
     role: user?.role,
-    zones: [], // TODO: Get zones from user or API
+    zones: user?.zones || [],
     skipAuth: false,
   });
 

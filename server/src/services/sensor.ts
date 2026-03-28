@@ -1,5 +1,5 @@
-import { pool } from '../db/index.js';
-import { emitSensorStateChange } from '../realtime/emitter.js';
+import { pool } from "../db/index.js";
+import { emitSensorStateChange } from "../realtime/emitter.js";
 
 /**
  * Sensor state management service
@@ -17,7 +17,7 @@ export async function updateSensorLastReading(sensorId: string): Promise<void> {
          SELECT MAX(timestamp) FROM readings WHERE sensor_id = $1
        )
        WHERE id = $1`,
-      [sensorId]
+      [sensorId],
     );
 
     if (result.rowCount === 0) {
@@ -38,13 +38,13 @@ export async function updateSensorLastReading(sensorId: string): Promise<void> {
  */
 export async function updateSensorState(
   sensorId: string,
-  state: 'healthy' | 'warning' | 'critical' | 'silent'
+  state: "healthy" | "warning" | "critical" | "silent",
 ): Promise<void> {
   try {
     // Fetch sensor info for real-time event
     const sensorResult = await pool.query(
-      'SELECT id, name, zone_id, current_state FROM sensors WHERE id = $1',
-      [sensorId]
+      "SELECT id, name, zone_id, current_state FROM sensors WHERE id = $1",
+      [sensorId],
     );
 
     if (sensorResult.rows.length === 0) {
@@ -61,8 +61,8 @@ export async function updateSensorState(
 
     // Update database
     const result = await pool.query(
-      'UPDATE sensors SET current_state = $1 WHERE id = $2',
-      [state, sensorId]
+      "UPDATE sensors SET current_state = $1 WHERE id = $2",
+      [state, sensorId],
     );
 
     if (result.rowCount === 0) {
@@ -77,7 +77,7 @@ export async function updateSensorState(
       name: sensor.name || `Sensor ${sensorId}`,
       state,
       timestamp: new Date().toISOString(),
-      severity: state === 'silent' ? 'warning' : state,
+      severity: state === "silent" ? "warning" : state,
     });
 
     console.log(`📡 [Sensor] ${sensor.name} state changed to ${state}`);
@@ -92,23 +92,23 @@ export async function updateSensorState(
  * Used to determine if sensor should be in 'warning' vs 'critical'
  */
 export async function getHighestAlertSeverity(
-  sensorId: string
-): Promise<'healthy' | 'warning' | 'critical' | null> {
+  sensorId: string,
+): Promise<"healthy" | "warning" | "critical" | null> {
   try {
     const result = await pool.query(
       `SELECT severity FROM alerts 
        WHERE sensor_id = $1 AND status = 'open'
        ORDER BY CASE severity WHEN 'critical' THEN 0 WHEN 'warning' THEN 1 END
        LIMIT 1`,
-      [sensorId]
+      [sensorId],
     );
 
-    if (result.rows.length === 0) return 'healthy';
+    if (result.rows.length === 0) return "healthy";
     return result.rows[0].severity;
   } catch (error) {
     console.error(
       `Error getting highest alert severity for ${sensorId}:`,
-      error
+      error,
     );
     throw error;
   }

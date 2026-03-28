@@ -6,7 +6,7 @@ export interface Sensor {
   id: string;
   zone_id: string;
   name: string;
-  current_state: 'healthy' | 'warning' | 'critical' | 'silent';
+  current_state: "healthy" | "warning" | "critical" | "silent";
   last_reading_at: string | null;
   reading_count: number;
   open_alerts: number;
@@ -20,8 +20,8 @@ export interface Alert {
   sensor_name: string;
   zone_id: string;
   zone_name: string;
-  severity: 'warning' | 'critical';
-  status: 'open' | 'acknowledged' | 'resolved';
+  severity: "warning" | "critical";
+  status: "open" | "acknowledged" | "resolved";
   assigned_to: string | null;
   assigned_to_email: string | null;
   escalated: boolean;
@@ -81,17 +81,17 @@ export interface RealTimeSensorEvent {
   sensor_id: string;
   zone_id: string;
   name: string;
-  state: 'healthy' | 'warning' | 'critical' | 'silent';
+  state: "healthy" | "warning" | "critical" | "silent";
   timestamp: string;
-  severity?: 'warning' | 'critical';
+  severity?: "warning" | "critical";
 }
 
 export interface RealTimeAlertEvent {
   alert_id: string;
   sensor_id: string;
   zone_id: string;
-  type: 'created' | 'acknowledged' | 'resolved' | 'escalated';
-  severity: 'warning' | 'critical';
+  type: "created" | "acknowledged" | "resolved" | "escalated";
+  severity: "warning" | "critical";
   sensor_name: string;
   assigned_to?: string;
   status: string;

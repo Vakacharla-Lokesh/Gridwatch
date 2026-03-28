@@ -2,12 +2,19 @@
  * Auth Context Hook
  * Manages JWT token and user state
  */
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  type ReactNode,
+} from "react";
 
 export interface User {
   id: string;
   email: string;
-  role: 'operator' | 'supervisor';
+  role: "operator" | "supervisor";
+  zones: string[];
 }
 
 interface AuthContextType {
@@ -25,19 +32,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Initialize from localStorage on mount
   useEffect(() => {
-    const savedToken = localStorage.getItem('auth_token');
+    const savedToken = localStorage.getItem("auth_token");
     if (savedToken) {
       setToken(savedToken);
-      // Optionally verify token with server
       verifyToken(savedToken);
     } else {
       setIsLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const getApiUrl = () => import.meta.env.VITE_API_URL || 'http://localhost:4000';
+  const getApiUrl = () =>
+    import.meta.env.VITE_API_URL || "http://localhost:4000";
 
   const verifyToken = async (token: string) => {
     try {
@@ -48,13 +55,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { user } = await response.json();
         setUser(user);
       } else {
-        // Token is invalid, clear it
-        localStorage.removeItem('auth_token');
+        localStorage.removeItem("auth_token");
         setToken(null);
       }
     } catch (error) {
-      console.error('Token verification failed:', error);
-      localStorage.removeItem('auth_token');
+      console.error("Token verification failed:", error);
+      localStorage.removeItem("auth_token");
       setToken(null);
     } finally {
       setIsLoading(false);
@@ -65,19 +71,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     try {
       const response = await fetch(`${getApiUrl()}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
 
       if (!response.ok) {
-        throw new Error('Login failed');
+        throw new Error("Login failed");
       }
 
       const { token, user } = await response.json();
       setToken(token);
       setUser(user);
-      localStorage.setItem('auth_token', token);
+      localStorage.setItem("auth_token", token);
     } finally {
       setIsLoading(false);
     }
@@ -86,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null);
     setToken(null);
-    localStorage.removeItem('auth_token');
+    localStorage.removeItem("auth_token");
   };
 
   return (
@@ -100,7 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
+    throw new Error("useAuth must be used within AuthProvider");
   }
   return context;
 }

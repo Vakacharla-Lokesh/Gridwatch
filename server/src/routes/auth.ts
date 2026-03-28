@@ -1,4 +1,9 @@
-import { Router, type Request, type Response, type NextFunction } from "express";
+import {
+  Router,
+  type Request,
+  type Response,
+  type NextFunction,
+} from "express";
 import * as jwt from "jsonwebtoken";
 import { pool } from "../db/index.js";
 import { authMiddleware } from "../middleware/auth.js";
@@ -83,7 +88,9 @@ router.post("/auth/logout", async (req: Request, res: Response) => {
       try {
         const decoded = jwt.verify(token, jwtSecret) as { exp?: number };
         // Calculate remaining TTL
-        const expiresIn = decoded.exp ? Math.max(0, decoded.exp - Math.floor(Date.now() / 1000)) : 86400;
+        const expiresIn = decoded.exp
+          ? Math.max(0, decoded.exp - Math.floor(Date.now() / 1000))
+          : 86400;
         // Blacklist the token (prevents reuse)
         await blacklistToken(token, expiresIn);
       } catch {

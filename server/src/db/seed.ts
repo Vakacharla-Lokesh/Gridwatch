@@ -1,4 +1,4 @@
-import { pool, shutdown } from './index.js';
+import { pool, shutdown } from "./index.js";
 
 /**
  * Seed script for GridWatch
@@ -14,10 +14,10 @@ import { pool, shutdown } from './index.js';
 
 async function seed() {
   try {
-    console.log('🌱 Seeding database...\n');
+    console.log("🌱 Seeding database...\n");
 
     // Step 1: Create zones
-    console.log('Creating zones...');
+    console.log("Creating zones...");
     const zonesResult = await pool.query(`
       INSERT INTO zones (name) VALUES
       ('North Zone'),
@@ -30,7 +30,7 @@ async function seed() {
     console.log(`✅ Created ${zones.length} zones`);
 
     // Step 2: Create users
-    console.log('Creating users...');
+    console.log("Creating users...");
     const usersResult = await pool.query(`
       INSERT INTO users (email, role) VALUES
       ('operator.north@gridwatch.local', 'operator'),
@@ -44,27 +44,39 @@ async function seed() {
     console.log(`✅ Created ${usersResult.rows.length} users`);
 
     // Step 3: Assign zones to operators
-    console.log('Assigning zones...');
-    const assignmentResult = await pool.query(`
+    console.log("Assigning zones...");
+    const assignmentResult = await pool.query(
+      `
       INSERT INTO user_zones (user_id, zone_id) VALUES
       ($1, $2),
       ($3, $4),
       ($5, $6)
-    `, [opNorth.id, zones[0].id, opSouth.id, zones[1].id, opCentral.id, zones[2].id]);
+    `,
+      [
+        opNorth.id,
+        zones[0].id,
+        opSouth.id,
+        zones[1].id,
+        opCentral.id,
+        zones[2].id,
+      ],
+    );
 
     console.log(`✅ Assigned zones to operators`);
 
     // Step 4: Create sensors for each zone
-    console.log('Creating sensors...');
+    console.log("Creating sensors...");
     const sensorsPerZone = 10; // Reduced for demo
     let sensorCount = 0;
 
     for (const zone of zones) {
       const sensorInserts = Array.from({ length: sensorsPerZone }, (_, i) => ({
         zone_id: zone.id,
-        name: `${zone.name.split(' ')[0].toUpperCase()}-Sensor-${String(i + 1).padStart(3, '0')}`,
-        current_state: Math.random() > 0.8 ? 'warning' : 'healthy',
-        last_reading_at: new Date(Date.now() - Math.random() * 3600000).toISOString(),
+        name: `${zone.name.split(" ")[0].toUpperCase()}-Sensor-${String(i + 1).padStart(3, "0")}`,
+        current_state: Math.random() > 0.8 ? "warning" : "healthy",
+        last_reading_at: new Date(
+          Date.now() - Math.random() * 3600000,
+        ).toISOString(),
       }));
 
       for (const sensor of sensorInserts) {
@@ -72,7 +84,12 @@ async function seed() {
           `INSERT INTO sensors (zone_id, name, current_state, last_reading_at)
            VALUES ($1, $2, $3, $4)
            RETURNING id`,
-          [sensor.zone_id, sensor.name, sensor.current_state, sensor.last_reading_at]
+          [
+            sensor.zone_id,
+            sensor.name,
+            sensor.current_state,
+            sensor.last_reading_at,
+          ],
         );
 
         const sensorId = result.rows[0].id;
@@ -90,22 +107,22 @@ async function seed() {
           [
             sensorId,
             JSON.stringify({
-              field: 'voltage',
+              field: "voltage",
               min: 210,
               max: 250,
-              severity: 'warning',
+              severity: "warning",
             }),
             JSON.stringify({
-              field: 'temperature',
+              field: "temperature",
               threshold_pct: 25,
               lookback_count: 3,
-              severity: 'critical',
+              severity: "critical",
             }),
             JSON.stringify({
               max_silence_seconds: 120,
-              severity: 'warning',
+              severity: "warning",
             }),
-          ]
+          ],
         );
 
         sensorCount++;
@@ -115,14 +132,14 @@ async function seed() {
     console.log(`✅ Created ${sensorCount} sensors with rules`);
 
     // Step 5: Create sample readings
-    console.log('Creating sample readings...');
+    console.log("Creating sample readings...");
     let readingCount = 0;
 
     for (const zone of zones) {
       // Get sensors in this zone
       const sensorsInZone = await pool.query(
-        'SELECT id FROM sensors WHERE zone_id = $1 LIMIT 10',
-        [zone.id]
+        "SELECT id FROM sensors WHERE zone_id = $1 LIMIT 10",
+        [zone.id],
       );
 
       for (const sensor of sensorsInZone.rows) {
@@ -135,13 +152,15 @@ async function seed() {
             voltage: 220 + Math.random() * 20,
             current: 10 + Math.random() * 15,
             temperature: 25 + Math.random() * 30,
-            status_code: Math.random() > 0.95 ? 'ERROR' : 'OK',
+            status_code: Math.random() > 0.95 ? "ERROR" : "OK",
           };
         });
 
         // Batch insert readings
         if (readingInserts.length > 0) {
-          const timestamps = readingInserts.map((r) => r.timestamp.toISOString());
+          const timestamps = readingInserts.map((r) =>
+            r.timestamp.toISOString(),
+          );
           const voltages = readingInserts.map((r) => r.voltage);
           const currents = readingInserts.map((r) => r.current);
           const temperatures = readingInserts.map((r) => r.temperature);
@@ -158,7 +177,14 @@ async function seed() {
                $5::numeric[],
                $6::text[]
              )`,
-            [sensorIds, timestamps, voltages, currents, temperatures, statusCodes]
+            [
+              sensorIds,
+              timestamps,
+              voltages,
+              currents,
+              temperatures,
+              statusCodes,
+            ],
           );
 
           readingCount += readingInserts.length;
@@ -169,31 +195,29 @@ async function seed() {
     console.log(`✅ Created ${readingCount} readings\n`);
 
     // Print summary
-    console.log('═══════════════════════════════════════════════════');
-    console.log('🎉 Database seeding complete!');
-    console.log('═══════════════════════════════════════════════════\n');
+    console.log("═══════════════════════════════════════════════════");
+    console.log("🎉 Database seeding complete!");
+    console.log("═══════════════════════════════════════════════════\n");
 
-    console.log('📊 Test Credentials:');
-    console.log('───────────────────────────────────────────────────');
+    console.log("📊 Test Credentials:");
+    console.log("───────────────────────────────────────────────────");
     console.log(`Operator (North):  ${opNorth.id}`);
     console.log(`Operator (South):  ${opSouth.id}`);
     console.log(`Operator (Central): ${opCentral.id}`);
     console.log(`Supervisor:        ${supervisor.id}`);
-    console.log('───────────────────────────────────────────────────\n');
+    console.log("───────────────────────────────────────────────────\n");
 
-    console.log('📍 Test Zone IDs:');
-    console.log('───────────────────────────────────────────────────');
+    console.log("📍 Test Zone IDs:");
+    console.log("───────────────────────────────────────────────────");
     zones.forEach((z) => console.log(`${z.name}: ${z.id}`));
-    console.log('───────────────────────────────────────────────────\n');
+    console.log("───────────────────────────────────────────────────\n");
 
-    console.log('🚀 Usage:');
+    console.log("🚀 Usage:");
     console.log(`GET /api/sensors (with header: x-user-id: ${opNorth.id})`);
     console.log(`POST /api/ingest (no auth required)`);
-    console.log(
-      `GET /health (for DB connection check)\n`
-    );
+    console.log(`GET /health (for DB connection check)\n`);
   } catch (error) {
-    console.error('❌ Seeding failed:', error);
+    console.error("❌ Seeding failed:", error);
     process.exit(1);
   } finally {
     await shutdown();

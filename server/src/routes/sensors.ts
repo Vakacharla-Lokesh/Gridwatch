@@ -22,22 +22,17 @@ router.get("/api/sensors", zoneGuard, async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    // Build cache key based on user role and zones
-    const cacheKey = `sensors:${req.user.role}:${(req.user.zones || []).sort().join(',')}`;
+    const cacheKey = `sensors:${req.user.role}:${(req.user.zones || []).sort().join(",")}`;
 
-    // Try to get from cache first
     const cached = await cacheGet(cacheKey);
     if (cached) {
       return res.json(cached);
     }
 
-    // Build zone filter
-    // Supervisors have empty zones array or can access all zones
-    // Operators have specific zone IDs
     const zones =
       req.user.role === "supervisor"
-        ? [] // Empty for supervisors (no WHERE filter needed)
-        : req.user.zones; // Operator zones
+        ? []
+        : req.user.zones;
 
     let query = `
       SELECT 
@@ -54,7 +49,6 @@ router.get("/api/sensors", zoneGuard, async (req: Request, res: Response) => {
 
     const params: unknown[] = [];
 
-    // Data layer isolation: enforce zone filtering
     if (zones.length > 0) {
       query += " WHERE zone_id = ANY($1)";
       params.push(zones);
@@ -64,7 +58,6 @@ router.get("/api/sensors", zoneGuard, async (req: Request, res: Response) => {
 
     const result = await pool.query(query, params);
 
-    // Cache for 5 minutes
     await cacheSet(cacheKey, result.rows, 300);
 
     res.json(result.rows);
@@ -172,22 +165,18 @@ router.get(
       const limit = Math.min(Number(req.query.limit) || 100, 500);
       const offset = (page - 1) * limit;
 
-      // Parse timestamps with defaults
       let from = req.query.from as string | undefined;
       let to = req.query.to as string | undefined;
 
       if (!from) {
-        // Default: 24 hours ago
         const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
         from = twentyFourHoursAgo.toISOString();
       }
 
       if (!to) {
-        // Default: now
         to = new Date().toISOString();
       }
 
-      // Verify sensor exists and user has access
       let sensorQuery = `SELECT id, zone_id FROM sensors WHERE id = $1`;
       const sensorParams: unknown[] = [sensorId];
 
@@ -203,15 +192,13 @@ router.get(
         });
       }
 
-      // Fetch total count for pagination metadata
       const countResult = await pool.query(
         `SELECT COUNT(*) as count FROM readings
          WHERE sensor_id = $1 AND timestamp BETWEEN $2 AND $3`,
-        [sensorId, from, to]
+        [sensorId, from, to],
       );
       const total = parseInt(countResult.rows[0].count, 10);
 
-      // Fetch readings with anomaly and alert details
       const historyQuery = `
         SELECT
           r.id,
@@ -273,7 +260,7 @@ router.get(
       console.error("[GET /api/sensors/:id/history] Error:", error);
       res.status(500).json({ error: "Internal server error" });
     }
-  }
+  },
 );
 
 export default router;

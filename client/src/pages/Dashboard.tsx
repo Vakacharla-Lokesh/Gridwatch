@@ -1,11 +1,6 @@
-import { SensorGrid } from '@/components/SensorGrid';
-import { AlertPanel } from '@/components/AlertPanel';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
+import { SensorGrid } from "@/components/SensorGrid";
+import { AlertPanel } from "@/components/AlertPanel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function Dashboard() {
   return (
@@ -23,14 +18,20 @@ export function Dashboard() {
           <TabsTrigger value="alerts">Alerts</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="sensors" className="space-y-6">
+        <TabsContent
+          value="sensors"
+          className="space-y-6"
+        >
           <div>
             <h2 className="text-xl font-semibold mb-4">Active Sensors</h2>
             <SensorGrid />
           </div>
         </TabsContent>
 
-        <TabsContent value="alerts" className="space-y-6">
+        <TabsContent
+          value="alerts"
+          className="space-y-6"
+        >
           <div>
             <h2 className="text-xl font-semibold mb-4">Alert Management</h2>
             <AlertPanel />

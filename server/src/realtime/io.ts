@@ -1,26 +1,14 @@
-import { Server } from 'socket.io';
-import type { Server as HTTPServer } from 'http';
-import { createAdapter } from '@socket.io/redis-adapter';
-import { redis, getRedisStatus } from '../lib/redis.js';
-import { getEnv } from '../config/env.js';
-
-/**
- * Socket.IO real-time server
- *
- * Manages zone-scoped connections for:
- * - Sensor state changes (healthy, warning, critical, silent)
- * - Alert creation/state transitions
- * - Suppression window updates
- *
- * Zone scoping: Operators see only their zones, supervisors see all
- * Rooms: zone:{zoneId} for operators, supervisor for supervisors
- */
+import { Server } from "socket.io";
+import type { Server as HTTPServer } from "http";
+import { createAdapter } from "@socket.io/redis-adapter";
+import { redis, getRedisStatus } from "../lib/redis.js";
+import { getEnv } from "../config/env.js";
 
 let io: Server | null = null;
 
 interface SocketUser {
   id: string;
-  role: 'operator' | 'supervisor';
+  role: "operator" | "supervisor";
   zones: string[];
 }
 
@@ -36,19 +24,25 @@ export function initializeIO(server: HTTPServer): Server {
   // Use Redis adapter if available (enables multi-instance scaling)
   if (redis) {
     const redisStatus = getRedisStatus();
-    console.log(`🔴 [Redis] Adapter ${redisStatus.available ? 'enabled' : 'disabled'}`);
-    
+    console.log(
+      `🔴 [Redis] Adapter ${redisStatus.available ? "enabled" : "disabled"}`,
+    );
+
     try {
       io.adapter(createAdapter(redis, redis));
-      console.log(`✅ [Socket.IO] Redis adapter configured for multi-instance scaling`);
+      console.log(
+        `✅ [Socket.IO] Redis adapter configured for multi-instance scaling`,
+      );
     } catch (error) {
       console.warn(`⚠️  [Socket.IO] Failed to configure Redis adapter:`, error);
     }
   } else {
-    console.log(`⚠️  [Socket.IO] Redis not configured - using in-memory adapter (single instance only)`);
+    console.log(
+      `⚠️  [Socket.IO] Redis not configured - using in-memory adapter (single instance only)`,
+    );
   }
 
-  io.on('connection', (socket) => {
+  io.on("connection", (socket) => {
     console.log(`📡 [Socket.IO] Client connected: ${socket.id}`);
 
     // Extract user from query or auth
@@ -61,10 +55,12 @@ export function initializeIO(server: HTTPServer): Server {
     }
 
     // Join zone-scoped rooms
-    if (user.role === 'supervisor') {
+    if (user.role === "supervisor") {
       // Supervisors join special 'supervisor' room (sees all zones)
-      socket.join('supervisor');
-      console.log(`✅ [Socket.IO] Supervisor ${user.id} joined supervisor room`);
+      socket.join("supervisor");
+      console.log(
+        `✅ [Socket.IO] Supervisor ${user.id} joined supervisor room`,
+      );
     } else {
       // Operators join zone-specific rooms
       for (const zone of user.zones) {
@@ -74,12 +70,12 @@ export function initializeIO(server: HTTPServer): Server {
     }
 
     // Handle disconnection
-    socket.on('disconnect', () => {
+    socket.on("disconnect", () => {
       console.log(`📡 [Socket.IO] Client disconnected: ${socket.id}`);
     });
 
     // For testing: allow clients to request current state
-    socket.on('request-state', (callback) => {
+    socket.on("request-state", (callback) => {
       callback({ connected: true, user, role: user.role });
     });
   });
@@ -93,7 +89,7 @@ export function initializeIO(server: HTTPServer): Server {
  */
 export function getIO(): Server {
   if (!io) {
-    throw new Error('Socket.IO not initialized. Call initializeIO() first.');
+    throw new Error("Socket.IO not initialized. Call initializeIO() first.");
   }
   return io;
 }
@@ -106,23 +102,26 @@ function extractUser(socket: any): SocketUser | null {
   try {
     // Option 1: Query string (for testing)
     const queryUserId = socket.handshake.query.user_id;
-    const queryRole = socket.handshake.query.role || 'operator';
-    const queryZones = socket.handshake.query.zones ? String(socket.handshake.query.zones).split(',') : [];
+    const queryRole = socket.handshake.query.role || "operator";
+    const queryZones = socket.handshake.query.zones
+      ? String(socket.handshake.query.zones).split(",")
+      : [];
 
     if (queryUserId) {
       return {
         id: String(queryUserId),
-        role: queryRole as 'operator' | 'supervisor',
+        role: queryRole as "operator" | "supervisor",
         zones: queryZones,
       };
     }
 
     // Option 2: Auth header with Bearer token (for production)
-    const authHeader = socket.handshake.auth?.token || socket.handshake.headers?.authorization;
+    const authHeader =
+      socket.handshake.auth?.token || socket.handshake.headers?.authorization;
     if (authHeader) {
       // In production: verify JWT and extract user
       // For assessment: simplified token parsing
-      const token = authHeader.replace('Bearer ', '');
+      const token = authHeader.replace("Bearer ", "");
       // Placeholder: actual implementation would verify JWT
       // For now, attach user from middleware
       const user = (socket.request as any).user;
@@ -137,7 +136,7 @@ function extractUser(socket: any): SocketUser | null {
 
     return null;
   } catch (error) {
-    console.error('Error extracting user:', error);
+    console.error("Error extracting user:", error);
     return null;
   }
 }
@@ -145,7 +144,10 @@ function extractUser(socket: any): SocketUser | null {
 /**
  * Get current connection stats (for debugging)
  */
-export function getConnectionStats(): { connectedClients: number; rooms: Record<string, number> } {
+export function getConnectionStats(): {
+  connectedClients: number;
+  rooms: Record<string, number>;
+} {
   try {
     if (!io) {
       return { connectedClients: 0, rooms: {} };
@@ -156,7 +158,7 @@ export function getConnectionStats(): { connectedClients: number; rooms: Record<
 
     const roomStats: Record<string, number> = {};
     rooms.forEach((value, key) => {
-      if (!key.startsWith('/')) {
+      if (!key.startsWith("/")) {
         // Skip default namespace rooms
         roomStats[key] = value.size;
       }
@@ -167,7 +169,7 @@ export function getConnectionStats(): { connectedClients: number; rooms: Record<
       rooms: roomStats,
     };
   } catch (error) {
-    console.error('[Realtime] Error getting connection stats:', error);
+    console.error("[Realtime] Error getting connection stats:", error);
     return { connectedClients: 0, rooms: {} };
   }
 }

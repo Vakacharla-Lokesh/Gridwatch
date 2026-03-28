@@ -13,7 +13,7 @@ interface EnvironmentConfig {
 
   // Server
   port: number;
-  nodeEnv: 'development' | 'production' | 'test';
+  nodeEnv: "development" | "production" | "test";
   clientUrl: string;
   corsOrigin: string;
 
@@ -32,22 +32,25 @@ interface EnvironmentConfig {
  * Called at server startup to catch missing config early
  */
 function parseEnv(): EnvironmentConfig {
-  const nodeEnv = (process.env.NODE_ENV || 'development') as 'development' | 'production' | 'test';
-  const port = parseInt(process.env.PORT || '4000', 10);
+  const nodeEnv = (process.env.NODE_ENV || "development") as
+    | "development"
+    | "production"
+    | "test";
+  const port = parseInt(process.env.PORT || "4000", 10);
 
   // Database configuration
   const databaseUrl = process.env.DATABASE_URL;
-  const postgresUser = process.env.POSTGRES_USER || 'gridwatch';
-  const postgresPassword = process.env.POSTGRES_PASSWORD || 'secret';
-  const postgresDb = process.env.POSTGRES_DB || 'gridwatch';
+  const postgresUser = process.env.POSTGRES_USER || "gridwatch";
+  const postgresPassword = process.env.POSTGRES_PASSWORD || "secret";
+  const postgresDb = process.env.POSTGRES_DB || "gridwatch";
 
   // Server/CORS
-  const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-  const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:5173';
+  const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+  const corsOrigin = process.env.CORS_ORIGIN || "http://localhost:5173";
 
   // JWT
-  const jwtSecret = process.env.JWT_SECRET || 'dev-secret-key';
-  const jwtExpiry = process.env.JWT_EXPIRY || '24h';
+  const jwtSecret = process.env.JWT_SECRET || "dev-secret-key";
+  const jwtExpiry = process.env.JWT_EXPIRY || "24h";
 
   // Redis
   const upstashRedisUrl = process.env.UPSTASH_REDIS_REST_URL;
@@ -56,15 +59,19 @@ function parseEnv(): EnvironmentConfig {
 
   // Validation
   if (!databaseUrl && !postgresUser) {
-    throw new Error('DATABASE_URL or POSTGRES credentials required');
+    throw new Error("DATABASE_URL or POSTGRES credentials required");
   }
 
-  if (jwtSecret === 'dev-secret-key' && nodeEnv === 'production') {
-    throw new Error('JWT_SECRET must be set in production (not dev-secret-key)');
+  if (jwtSecret === "dev-secret-key" && nodeEnv === "production") {
+    throw new Error(
+      "JWT_SECRET must be set in production (not dev-secret-key)",
+    );
   }
 
   return {
-    databaseUrl: databaseUrl || `postgresql://${postgresUser}:${postgresPassword}@localhost:5432/${postgresDb}`,
+    databaseUrl:
+      databaseUrl ||
+      `postgresql://${postgresUser}:${postgresPassword}@localhost:5432/${postgresDb}`,
     postgresUser,
     postgresPassword,
     postgresDb,
@@ -101,51 +108,55 @@ export function getEnv(): EnvironmentConfig {
 export function logStartupConfig(): void {
   const env = getEnv();
 
-  console.log('\n═══════════════════════════════════════════════════════');
-  console.log('🔧 Environment Configuration');
-  console.log('═══════════════════════════════════════════════════════');
+  console.log("\n═══════════════════════════════════════════════════════");
+  console.log("🔧 Environment Configuration");
+  console.log("═══════════════════════════════════════════════════════");
 
   // Server
-  console.log('\n[SERVER]');
+  console.log("\n[SERVER]");
   console.log(`  PORT: ${env.port}`);
   console.log(`  NODE_ENV: ${env.nodeEnv}`);
   console.log(`  CLIENT_URL: ${env.clientUrl}`);
   console.log(`  CORS_ORIGIN: ${env.corsOrigin}`);
 
   // Database
-  console.log('\n[DATABASE]');
+  console.log("\n[DATABASE]");
   const dbUrl = env.databaseUrl;
-  const dbMasked = dbUrl.replace(/:[^:@]*@/, ':****@').replace(/\/.*$/, '/****');
+  const dbMasked = dbUrl
+    .replace(/:[^:@]*@/, ":****@")
+    .replace(/\/.*$/, "/****");
   console.log(`  DATABASE_URL: ${dbMasked}`);
   console.log(`  POSTGRES_DB: ${env.postgresDb}`);
 
   // JWT
-  console.log('\n[JWT AUTH]');
-  console.log(`  JWT_SECRET: ${env.jwtSecret === 'dev-secret-key' ? '(dev-default)' : '****'}`);
+  console.log("\n[JWT AUTH]");
+  console.log(
+    `  JWT_SECRET: ${env.jwtSecret === "dev-secret-key" ? "(dev-default)" : "****"}`,
+  );
   console.log(`  JWT_EXPIRY: ${env.jwtExpiry}`);
 
   // Redis
-  console.log('\n[REDIS/UPSTASH]');
+  console.log("\n[REDIS/UPSTASH]");
   if (env.hasRedis) {
-    const urlMasked = env.upstashRedisUrl?.split('@')[0] + '@****';
+    const urlMasked = env.upstashRedisUrl?.split("@")[0] + "@****";
     console.log(`  ✅ UPSTASH_REDIS_REST_URL: ${urlMasked}`);
     console.log(`  ✅ UPSTASH_REDIS_REST_TOKEN: ****`);
   } else {
     console.log(`  ⚠️  Redis not configured (caching disabled)`);
   }
 
-  console.log('\n═══════════════════════════════════════════════════════\n');
+  console.log("\n═══════════════════════════════════════════════════════\n");
 }
 
 /**
  * Shorthand getters for commonly accessed values
  */
 export function isDevelopment(): boolean {
-  return getEnv().nodeEnv === 'development';
+  return getEnv().nodeEnv === "development";
 }
 
 export function isProduction(): boolean {
-  return getEnv().nodeEnv === 'production';
+  return getEnv().nodeEnv === "production";
 }
 
 export function hasRedisAvailable(): boolean {

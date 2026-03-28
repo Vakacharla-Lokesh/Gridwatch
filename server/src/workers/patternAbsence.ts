@@ -1,6 +1,6 @@
-import { pool } from '../db/index.js';
-import { createAlert } from '../services/alerts.js';
-import { updateSensorState } from '../services/sensor.js';
+import { pool } from "../db/index.js";
+import { createAlert } from "../services/alerts.js";
+import { updateSensorState } from "../services/sensor.js";
 
 /**
  * Pattern Absence Worker
@@ -17,7 +17,7 @@ interface SilentSensor {
   rule_id: string;
   rule_type: string;
   config: Record<string, unknown>;
-  severity: 'warning' | 'critical';
+  severity: "warning" | "critical";
 }
 
 /**
@@ -32,7 +32,7 @@ export async function checkPatternAbsence(): Promise<void> {
        FROM sensors s
        JOIN sensor_rules sr ON sr.sensor_id = s.id AND sr.rule_type = 'pattern_absence'
        WHERE (s.last_reading_at IS NULL OR s.last_reading_at < NOW() - INTERVAL '2 minutes')
-       ORDER BY s.id`
+       ORDER BY s.id`,
     );
 
     const silentSensors = silentsResult.rows as SilentSensor[];
@@ -40,7 +40,7 @@ export async function checkPatternAbsence(): Promise<void> {
     if (silentSensors.length === 0) return;
 
     console.log(
-      `🔇 [Pattern Absence] Found ${silentSensors.length} potentially silent sensors, checking...`
+      `🔇 [Pattern Absence] Found ${silentSensors.length} potentially silent sensors, checking...`,
     );
 
     for (const sensor of silentSensors) {
@@ -50,7 +50,7 @@ export async function checkPatternAbsence(): Promise<void> {
          WHERE sensor_id = $1 AND rule_type = 'pattern_absence'
            AND detected_at > NOW() - INTERVAL '3 minutes'
          LIMIT 1`,
-        [sensor.sensor_id]
+        [sensor.sensor_id],
       );
 
       if (existingResult.rows.length > 0) {
@@ -63,31 +63,31 @@ export async function checkPatternAbsence(): Promise<void> {
         `INSERT INTO anomalies (reading_id, sensor_id, rule_id, rule_type, detected_at, suppressed)
          VALUES (NULL, $1, $2, 'pattern_absence', NOW(), false)
          RETURNING id`,
-        [sensor.sensor_id, sensor.rule_id]
+        [sensor.sensor_id, sensor.rule_id],
       );
 
       const anomalyId = anomalyResult.rows[0].id;
 
       console.log(
-        `⚠️  [Pattern Absence] Sensor ${sensor.sensor_id} silent for 2+ min, anomaly: ${anomalyId}`
+        `⚠️  [Pattern Absence] Sensor ${sensor.sensor_id} silent for 2+ min, anomaly: ${anomalyId}`,
       );
 
       // Create alert for pattern absence
       const alert = await createAlert(
         anomalyId,
         sensor.sensor_id,
-        sensor.severity
+        sensor.severity,
       );
 
       // Update sensor state to 'silent'
       if (alert) {
-        await updateSensorState(sensor.sensor_id, 'silent');
+        await updateSensorState(sensor.sensor_id, "silent");
       }
     }
 
     console.log(`✅ [Pattern Absence] Pattern absence check completed`);
   } catch (error) {
-    console.error('[Pattern Absence Worker] Error:', error);
+    console.error("[Pattern Absence Worker] Error:", error);
     // Don't throw — this worker runs on a timer and should recover
   }
 }
@@ -101,13 +101,13 @@ export function startPatternAbsenceWorker(): NodeJS.Timer {
 
   // Run immediately first
   checkPatternAbsence().catch((err) =>
-    console.error('[Pattern Absence] Initial check failed:', err)
+    console.error("[Pattern Absence] Initial check failed:", err),
   );
 
   // Then run every 30 seconds
   const timer = setInterval(() => {
     checkPatternAbsence().catch((err) =>
-      console.error('[Pattern Absence] Periodic check failed:', err)
+      console.error("[Pattern Absence] Periodic check failed:", err),
     );
   }, 30_000); // 30 seconds
 

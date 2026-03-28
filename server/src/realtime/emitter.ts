@@ -1,4 +1,4 @@
-import { getIO } from './io.js';
+import { getIO } from "./io.js";
 
 /**
  * Real-time event emitter
@@ -11,7 +11,7 @@ export interface SensorStateChange {
   sensor_id: string;
   zone_id: string;
   name: string;
-  state: 'healthy' | 'warning' | 'critical' | 'silent';
+  state: "healthy" | "warning" | "critical" | "silent";
   timestamp: string;
   severity?: string;
 }
@@ -20,8 +20,8 @@ export interface AlertEvent {
   alert_id: string;
   sensor_id: string;
   zone_id: string;
-  type: 'created' | 'acknowledged' | 'resolved' | 'escalated';
-  severity: 'warning' | 'critical';
+  type: "created" | "acknowledged" | "resolved" | "escalated";
+  severity: "warning" | "critical";
   sensor_name: string;
   assigned_to?: string;
   status: string;
@@ -46,22 +46,22 @@ export function emitSensorStateChange(change: SensorStateChange): void {
   try {
     const io = getIO();
     const payload = {
-      type: 'sensor-state-change',
+      type: "sensor-state-change",
       data: change,
       timestamp: new Date().toISOString(),
     };
 
     // Emit to operators in the zone
-    io.to(`zone:${change.zone_id}`).emit('sensor-state-change', payload);
+    io.to(`zone:${change.zone_id}`).emit("sensor-state-change", payload);
 
     // Emit to supervisors (they see all zones)
-    io.to('supervisor').emit('sensor-state-change', payload);
+    io.to("supervisor").emit("sensor-state-change", payload);
 
     console.log(
-      `📡 [Realtime] Sensor ${change.sensor_id} state → ${change.state} (zone: ${change.zone_id})`
+      `📡 [Realtime] Sensor ${change.sensor_id} state → ${change.state} (zone: ${change.zone_id})`,
     );
   } catch (error) {
-    console.error('[Realtime] Error emitting sensor state change:', error);
+    console.error("[Realtime] Error emitting sensor state change:", error);
   }
 }
 
@@ -73,22 +73,22 @@ export function emitAlertEvent(event: AlertEvent): void {
   try {
     const io = getIO();
     const payload = {
-      type: 'alert-event',
+      type: "alert-event",
       data: event,
       timestamp: new Date().toISOString(),
     };
 
     // Emit to operators in the zone
-    io.to(`zone:${event.zone_id}`).emit('alert-event', payload);
+    io.to(`zone:${event.zone_id}`).emit("alert-event", payload);
 
     // Emit to supervisors (they see all zones)
-    io.to('supervisor').emit('alert-event', payload);
+    io.to("supervisor").emit("alert-event", payload);
 
     console.log(
-      `📡 [Realtime] Alert ${event.alert_id} [${event.type}] (zone: ${event.zone_id})`
+      `📡 [Realtime] Alert ${event.alert_id} [${event.type}] (zone: ${event.zone_id})`,
     );
   } catch (error) {
-    console.error('[Realtime] Error emitting alert event:', error);
+    console.error("[Realtime] Error emitting alert event:", error);
   }
 }
 
@@ -100,22 +100,22 @@ export function emitSuppressionEvent(event: SuppressionEvent): void {
   try {
     const io = getIO();
     const payload = {
-      type: 'suppression-event',
+      type: "suppression-event",
       data: event,
       timestamp: new Date().toISOString(),
     };
 
     // Emit to operators in the zone
-    io.to(`zone:${event.zone_id}`).emit('suppression-event', payload);
+    io.to(`zone:${event.zone_id}`).emit("suppression-event", payload);
 
     // Emit to supervisors
-    io.to('supervisor').emit('suppression-event', payload);
+    io.to("supervisor").emit("suppression-event", payload);
 
     console.log(
-      `📡 [Realtime] Suppression created for ${event.sensor_id} (zone: ${event.zone_id})`
+      `📡 [Realtime] Suppression created for ${event.sensor_id} (zone: ${event.zone_id})`,
     );
   } catch (error) {
-    console.error('[Realtime] Error emitting suppression event:', error);
+    console.error("[Realtime] Error emitting suppression event:", error);
   }
 }
 
@@ -123,7 +123,11 @@ export function emitSuppressionEvent(event: SuppressionEvent): void {
  * Broadcast to a specific zone + supervisors
  * For generic messages or batch updates
  */
-export function broadcastToZone(zoneId: string, event: string, data: any): void {
+export function broadcastToZone(
+  zoneId: string,
+  event: string,
+  data: any,
+): void {
   try {
     const io = getIO();
     const payload = {
@@ -133,11 +137,11 @@ export function broadcastToZone(zoneId: string, event: string, data: any): void 
     };
 
     io.to(`zone:${zoneId}`).emit(event, payload);
-    io.to('supervisor').emit(event, payload);
+    io.to("supervisor").emit(event, payload);
 
     console.log(`📡 [Realtime] Broadcast ${event} to zone ${zoneId}`);
   } catch (error) {
-    console.error('[Realtime] Error broadcasting to zone:', error);
+    console.error("[Realtime] Error broadcasting to zone:", error);
   }
 }
 
@@ -156,14 +160,17 @@ export function broadcastToAll(event: string, data: any): void {
     io.emit(event, payload);
     console.log(`📡 [Realtime] Broadcast ${event} to all clients`);
   } catch (error) {
-    console.error('[Realtime] Error broadcasting to all:', error);
+    console.error("[Realtime] Error broadcasting to all:", error);
   }
 }
 
 /**
  * Get current connection stats (for debugging)
  */
-export function getConnectionStats(): { connectedClients: number; rooms: Record<string, number> } {
+export function getConnectionStats(): {
+  connectedClients: number;
+  rooms: Record<string, number>;
+} {
   try {
     const io = getIO();
     const sockets = io.sockets.sockets;
@@ -171,7 +178,7 @@ export function getConnectionStats(): { connectedClients: number; rooms: Record<
 
     const roomStats: Record<string, number> = {};
     rooms.forEach((value, key) => {
-      if (!key.startsWith('/')) {
+      if (!key.startsWith("/")) {
         // Skip default namespace rooms
         roomStats[key] = value.size;
       }
@@ -182,7 +189,7 @@ export function getConnectionStats(): { connectedClients: number; rooms: Record<
       rooms: roomStats,
     };
   } catch (error) {
-    console.error('[Realtime] Error getting connection stats:', error);
+    console.error("[Realtime] Error getting connection stats:", error);
     return { connectedClients: 0, rooms: {} };
   }
 }
