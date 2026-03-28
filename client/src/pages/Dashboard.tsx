@@ -1,5 +1,6 @@
 import { SensorGrid } from "@/components/SensorGrid";
 import { AlertPanel } from "@/components/AlertPanel";
+import { TestingPanel } from "@/components/TestingPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function Dashboard() {
@@ -16,6 +17,7 @@ export function Dashboard() {
         <TabsList>
           <TabsTrigger value="sensors">Sensors</TabsTrigger>
           <TabsTrigger value="alerts">Alerts</TabsTrigger>
+          <TabsTrigger value="testing">Testing</TabsTrigger>
         </TabsList>
 
         <TabsContent
@@ -35,6 +37,15 @@ export function Dashboard() {
           <div>
             <h2 className="text-xl font-semibold mb-4">Alert Management</h2>
             <AlertPanel />
+          </div>
+        </TabsContent>
+
+        <TabsContent
+          value="testing"
+          className="space-y-6"
+        >
+          <div>
+            <TestingPanel />
           </div>
         </TabsContent>
       </Tabs>

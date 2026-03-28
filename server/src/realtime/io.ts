@@ -21,26 +21,9 @@ export function initializeIO(server: HTTPServer): Server {
     },
   });
 
-  // Use Redis adapter if available (enables multi-instance scaling)
-  if (redis) {
-    const redisStatus = getRedisStatus();
-    console.log(
-      `🔴 [Redis] Adapter ${redisStatus.available ? "enabled" : "disabled"}`,
-    );
-
-    try {
-      io.adapter(createAdapter(redis, redis));
-      console.log(
-        `✅ [Socket.IO] Redis adapter configured for multi-instance scaling`,
-      );
-    } catch (error) {
-      console.warn(`⚠️  [Socket.IO] Failed to configure Redis adapter:`, error);
-    }
-  } else {
-    console.log(
-      `⚠️  [Socket.IO] Redis not configured - using in-memory adapter (single instance only)`,
-    );
-  }
+  console.log(
+    `⚠️  [Socket.IO] Using in-memory adapter (single instance only - upgrade to ioredis for scaling)`,
+  );
 
   io.on("connection", (socket) => {
     console.log(`📡 [Socket.IO] Client connected: ${socket.id}`);
@@ -56,7 +39,6 @@ export function initializeIO(server: HTTPServer): Server {
 
     // Join zone-scoped rooms
     if (user.role === "supervisor") {
-      // Supervisors join special 'supervisor' room (sees all zones)
       socket.join("supervisor");
       console.log(
         `✅ [Socket.IO] Supervisor ${user.id} joined supervisor room`,
@@ -119,11 +101,7 @@ function extractUser(socket: any): SocketUser | null {
     const authHeader =
       socket.handshake.auth?.token || socket.handshake.headers?.authorization;
     if (authHeader) {
-      // In production: verify JWT and extract user
-      // For assessment: simplified token parsing
       const token = authHeader.replace("Bearer ", "");
-      // Placeholder: actual implementation would verify JWT
-      // For now, attach user from middleware
       const user = (socket.request as any).user;
       if (user) {
         return {

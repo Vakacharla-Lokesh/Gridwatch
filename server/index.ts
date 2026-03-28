@@ -20,6 +20,7 @@ import ingestRoutes from "./src/routes/ingest.js";
 import sensorRoutes from "./src/routes/sensors.js";
 import alertRoutes from "./src/routes/alerts.js";
 import suppressionRoutes from "./src/routes/suppressions.js";
+import testingRoutes from "./src/routes/testing.js";
 
 const app: Express = express();
 const { port, corsOrigin } = getEnv();
@@ -58,6 +59,9 @@ app.use(alertRoutes);
 
 // Suppression routes (Phase 6)
 app.use(suppressionRoutes);
+
+// Testing routes (for running test scripts)
+app.use(testingRoutes);
 
 // Debug: Socket.IO connection stats + Redis status (Phase 5 + Phase 9)
 app.get("/api/debug/connections", (req, res) => {
