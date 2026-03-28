@@ -131,4 +131,136 @@ router.get(
   },
 );
 
+/**
+ * GET /api/sensors/:id/history
+ *
+ * Fetch historical readings for a sensor with anomaly and alert details
+ *
+ * @param {string} id - Sensor ID
+ * @query {string} from - Start timestamp (ISO 8601), default 24 hours ago
+ * @query {string} to - End timestamp (ISO 8601), default now
+ * @query {number} page - Page number (default 1)
+ * @query {number} limit - Results per page (max 500, default 100)
+ *
+ * Returns paginated readings with anomaly/alert details
+ */
+router.get(
+  "/api/sensors/:id/history",
+  zoneGuard,
+  async (req: Request, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const sensorId = req.params.id;
+      const userZones = req.user.zones;
+      const page = Math.max(1, Number(req.query.page) || 1);
+      const limit = Math.min(Number(req.query.limit) || 100, 500);
+      const offset = (page - 1) * limit;
+
+      // Parse timestamps with defaults
+      let from = req.query.from as string | undefined;
+      let to = req.query.to as string | undefined;
+
+      if (!from) {
+        // Default: 24 hours ago
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        from = twentyFourHoursAgo.toISOString();
+      }
+
+      if (!to) {
+        // Default: now
+        to = new Date().toISOString();
+      }
+
+      // Verify sensor exists and user has access
+      let sensorQuery = `SELECT id, zone_id FROM sensors WHERE id = $1`;
+      const sensorParams: unknown[] = [sensorId];
+
+      if (req.user.role !== "supervisor" && userZones.length > 0) {
+        sensorQuery += ` AND zone_id = ANY($2)`;
+        sensorParams.push(userZones);
+      }
+
+      const sensorResult = await pool.query(sensorQuery, sensorParams);
+      if (sensorResult.rows.length === 0) {
+        return res.status(404).json({
+          error: "Sensor not found or you do not have access",
+        });
+      }
+
+      // Fetch total count for pagination metadata
+      const countResult = await pool.query(
+        `SELECT COUNT(*) as count FROM readings
+         WHERE sensor_id = $1 AND timestamp BETWEEN $2 AND $3`,
+        [sensorId, from, to]
+      );
+      const total = parseInt(countResult.rows[0].count, 10);
+
+      // Fetch readings with anomaly and alert details
+      const historyQuery = `
+        SELECT
+          r.id,
+          r.sensor_id,
+          r.timestamp,
+          r.voltage,
+          r.current,
+          r.temperature,
+          r.status_code,
+          r.has_anomaly,
+          CASE
+            WHEN r.has_anomaly THEN (
+              SELECT json_agg(
+                json_build_object(
+                  'anomaly_id', a.id,
+                  'rule_type', a.rule_type,
+                  'detected_at', a.detected_at,
+                  'suppressed', a.suppressed,
+                  'alert_id', al.id,
+                  'alert_status', al.status,
+                  'alert_severity', al.severity
+                )
+              )
+              FROM anomalies a
+              LEFT JOIN alerts al ON al.anomaly_id = a.id
+              WHERE a.reading_id = r.id
+            )
+            ELSE NULL
+          END as anomaly_details
+        FROM readings r
+        WHERE r.sensor_id = $1
+          AND r.timestamp BETWEEN $2 AND $3
+        ORDER BY r.timestamp DESC
+        LIMIT $4 OFFSET $5
+      `;
+
+      const result = await pool.query(historyQuery, [
+        sensorId,
+        from,
+        to,
+        limit,
+        offset,
+      ]);
+
+      res.json({
+        data: result.rows,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+        },
+        timeRange: {
+          from,
+          to,
+        },
+      });
+    } catch (error) {
+      console.error("[GET /api/sensors/:id/history] Error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
+
 export default router;

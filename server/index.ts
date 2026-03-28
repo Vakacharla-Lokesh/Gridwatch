@@ -16,6 +16,7 @@ import healthRoutes from "./src/routes/health.js";
 import ingestRoutes from "./src/routes/ingest.js";
 import sensorRoutes from "./src/routes/sensors.js";
 import alertRoutes from "./src/routes/alerts.js";
+import suppressionRoutes from "./src/routes/suppressions.js";
 
 const app: Express = express();
 const port = process.env.PORT || 3001;
@@ -48,6 +49,9 @@ app.use(sensorRoutes);
 
 // Alert routes (Phase 3+)
 app.use(alertRoutes);
+
+// Suppression routes (Phase 6)
+app.use(suppressionRoutes);
 
 // Debug: Socket.IO connection stats (Phase 5)
 app.get("/api/debug/connections", (req, res) => {

@@ -134,3 +134,32 @@ export async function getSuppressionHistory(sensorId: string): Promise<Suppressi
     throw error;
   }
 }
+
+/**
+ * Delete a suppression window by ID
+ *
+ * Can only delete suppressions that haven't started yet or are for future windows.
+ * Active suppressions can be deleted to prematurely end suppression.
+ *
+ * @param suppressionId - UUID of suppression to delete
+ * @returns true if deletion succeeded, false if suppression not found
+ */
+export async function deleteSuppression(suppressionId: string): Promise<boolean> {
+  try {
+    const result = await pool.query(
+      `DELETE FROM suppressions WHERE id = $1`,
+      [suppressionId]
+    );
+
+    if (result.rowCount === 0) {
+      console.warn(`Suppression ${suppressionId} not found for deletion`);
+      return false;
+    }
+
+    console.log(`📍 [Suppression] Deleted ${suppressionId}`);
+    return true;
+  } catch (error) {
+    console.error(`Error deleting suppression ${suppressionId}:`, error);
+    throw error;
+  }
+}
