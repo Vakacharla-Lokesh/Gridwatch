@@ -2,6 +2,7 @@ import { Server } from 'socket.io';
 import type { Server as HTTPServer } from 'http';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { redis, getRedisStatus } from '../lib/redis.js';
+import { getEnv } from '../config/env.js';
 
 /**
  * Socket.IO real-time server
@@ -24,9 +25,10 @@ interface SocketUser {
 }
 
 export function initializeIO(server: HTTPServer): Server {
+  const { clientUrl } = getEnv();
   io = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_URL || 'http://localhost:3000',
+      origin: clientUrl,
       credentials: true,
     },
   });

@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { pool } from "../db/index.js";
 import { isTokenBlacklisted } from "../lib/redis.js";
+import { getEnv } from "../config/env.js";
 
 declare global {
   namespace Express {
@@ -29,7 +30,7 @@ export async function authMiddleware(
 
     if (authHeader && authHeader.startsWith("Bearer ")) {
       token = authHeader.slice(7);
-      const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-key";
+      const { jwtSecret } = getEnv();
 
       try {
         // Check if token is blacklisted (logged out)
@@ -38,7 +39,7 @@ export async function authMiddleware(
           return res.status(401).json({ error: "Token has been revoked" });
         }
 
-        const decoded = jwt.verify(token, JWT_SECRET) as {
+        const decoded = jwt.verify(token, jwtSecret) as {
           userId: string;
           email: string;
           role: string;

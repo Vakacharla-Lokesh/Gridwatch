@@ -1,8 +1,7 @@
 import { Pool, type PoolClient } from "pg";
+import { getEnv } from "../config/env.js";
 
-const databaseUrl =
-  process.env.DATABASE_URL ||
-  "postgresql://gridwatch:secret@localhost:5432/gridwatch";
+const { databaseUrl } = getEnv();
 
 export const pool = new Pool({
   connectionString: databaseUrl,

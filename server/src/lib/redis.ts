@@ -3,12 +3,11 @@
  * Used for caching, session storage, Socket.IO rooms, and token blacklist
  */
 import { Redis } from '@upstash/redis';
+import { getEnv } from '../config/env.js';
 
-// Initialize Redis client from Upstash environment variables
-const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
-const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-
-export const redis = redisUrl && redisToken ? new Redis({ url: redisUrl, token: redisToken }) : null;
+// Initialize Redis client from Upstash environment variables (via centralized config)
+const env = getEnv();
+export const redis = env.upstashRedisUrl && env.upstashRedisToken ? new Redis({ url: env.upstashRedisUrl, token: env.upstashRedisToken }) : null;
 
 /**
  * Check if Redis is available
@@ -164,8 +163,9 @@ export async function getUserSession(userId: string): Promise<Record<string, unk
  * Get Redis connection stats (for monitoring)
  */
 export function getRedisStatus(): { available: boolean; url?: string } {
+  const { hasRedis } = getEnv();
   return {
     available: isRedisAvailable(),
-    url: redisUrl ? '[CONFIGURED]' : '[NOT CONFIGURED]',
+    url: hasRedis ? '[CONFIGURED]' : '[NOT CONFIGURED]',
   };
 }

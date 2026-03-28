@@ -13,6 +13,7 @@ import { startPatternAbsenceWorker } from "./src/workers/patternAbsence.js";
 import { startEscalationWorker } from "./src/workers/escalation.js";
 import { initializeIO, getConnectionStats } from "./src/realtime/io.js";
 import { getRedisStatus } from "./src/lib/redis.js";
+import { getEnv, logStartupConfig } from "./src/config/env.js";
 import healthRoutes from "./src/routes/health.js";
 import authRoutes from "./src/routes/auth.js";
 import ingestRoutes from "./src/routes/ingest.js";
@@ -21,7 +22,7 @@ import alertRoutes from "./src/routes/alerts.js";
 import suppressionRoutes from "./src/routes/suppressions.js";
 
 const app: Express = express();
-const port = process.env.PORT || 3001;
+const { port, corsOrigin } = getEnv();
 
 // Middleware
 app.use(helmet());
@@ -87,6 +88,9 @@ app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
     message: process.env.NODE_ENV === "development" ? error.message : undefined,
   });
 });
+
+// Log startup configuration
+logStartupConfig();
 
 // Start server
 const server = app.listen(port, async () => {
