@@ -9,7 +9,11 @@ import helmet from "helmet";
 import morgan from "morgan";
 import { authMiddleware } from "./src/middleware/auth.js";
 import { shutdown } from "./src/db/index.js";
+import { startPatternAbsenceWorker } from "./src/workers/patternAbsence.js";
 import healthRoutes from "./src/routes/health.js";
+import ingestRoutes from "./src/routes/ingest.js";
+import sensorRoutes from "./src/routes/sensors.js";
+import alertRoutes from "./src/routes/alerts.js";
 
 const app: Express = express();
 const port = process.env.PORT || 3001;
@@ -31,16 +35,21 @@ const asyncHandler =
 // Health check (no auth required)
 app.use(healthRoutes);
 
+// Ingest pipeline (no zone auth required for simplicity, but in production add zone validation)
+app.use(ingestRoutes);
+
 // Auth middleware (protect all other routes)
 app.use(authMiddleware);
+
+// Sensor routes
+app.use(sensorRoutes);
+
+// Alert routes (Phase 3+)
+app.use(alertRoutes);
 
 // Routes
 app.get("/api/sensors", (req, res) => {
   res.json({ message: "Sensors endpoint - Phase 2" });
-});
-
-app.post("/api/ingest", (req, res) => {
-  res.json({ message: "Ingest endpoint - Phase 2" });
 });
 
 app.get("/api/alerts", (req, res) => {
@@ -62,9 +71,12 @@ app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Start server
-const server = app.listen(port, () => {
+const server = app.listen(port, async () => {
   console.log(`✅ Server running at http://localhost:${port}`);
   console.log(`📊 Health check: http://localhost:${port}/health`);
+
+  // Start background workers
+  startPatternAbsenceWorker();
 });
 
 // Graceful shutdown

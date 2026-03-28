@@ -25,31 +25,25 @@ export async function authMiddleware(
     if (!userId) {
       return res.status(401).json({ error: "Missing x-user-id header" });
     }
-    const userResult = await pool.query(
-      "SELECT id, email, role FROM users WHERE id = $1",
+
+    const result = await pool.query(
+      `SELECT 
+         u.id, 
+         u.email, 
+         u.role, 
+         COALESCE(array_agg(uz.zone_id) FILTER (WHERE uz.zone_id IS NOT NULL), '{}') as zones
+       FROM users u
+       LEFT JOIN user_zones uz ON u.id = uz.user_id
+       WHERE u.id = $1
+       GROUP BY u.id`,
       [userId],
     );
 
-    if (userResult.rows.length === 0) {
+    if (result.rows.length === 0) {
       return res.status(401).json({ error: "User not found" });
     }
 
-    const user = userResult.rows[0];
-
-    const zonesResult = await pool.query(
-      "SELECT zone_id FROM user_zones WHERE user_id = $1",
-      [userId],
-    );
-
-    const zones = zonesResult.rows.map((row) => row.zone_id);
-
-    req.user = {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      zones,
-    };
-
+    req.user = result.rows[0];
     next();
   } catch (error) {
     console.error("Auth middleware error:", error);
@@ -62,9 +56,14 @@ export function zoneGuard(req: Request, res: Response, next: NextFunction) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const zoneId = req.query.zone_id || req.params.zone_id;
+  if (req.user.role === "supervisor") {
+    return next();
+  }
 
-  if (zoneId && !req.user.zones.includes(zoneId as string)) {
+  const requestedZoneId =
+    req.query.zone_id || req.params.zone_id || req.body.zone_id;
+
+  if (requestedZoneId && !req.user.zones.includes(requestedZoneId as string)) {
     return res.status(403).json({ error: "Forbidden - Zone access denied" });
   }
 
