@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
 import { pool } from "../db/index.js";
 
 declare global {
@@ -20,10 +21,31 @@ export async function authMiddleware(
   next: NextFunction,
 ) {
   try {
-    const userId = req.headers["x-user-id"] as string;
+    // Try JWT token first (new auth flow)
+    const authHeader = req.headers.authorization;
+    let userId: string | null = null;
+
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.slice(7);
+      const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-key";
+
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET) as {
+          userId: string;
+          email: string;
+          role: string;
+        };
+        userId = decoded.userId;
+      } catch {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+    } else {
+      // Fallback: check x-user-id header (for backwards compatibility)
+      userId = req.headers["x-user-id"] as string;
+    }
 
     if (!userId) {
-      return res.status(401).json({ error: "Missing x-user-id header" });
+      return res.status(401).json({ error: "Missing authentication" });
     }
 
     const result = await pool.query(

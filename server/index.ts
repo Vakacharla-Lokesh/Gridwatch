@@ -13,6 +13,7 @@ import { startPatternAbsenceWorker } from "./src/workers/patternAbsence.js";
 import { startEscalationWorker } from "./src/workers/escalation.js";
 import { initializeIO, getConnectionStats } from "./src/realtime/io.js";
 import healthRoutes from "./src/routes/health.js";
+import authRoutes from "./src/routes/auth.js";
 import ingestRoutes from "./src/routes/ingest.js";
 import sensorRoutes from "./src/routes/sensors.js";
 import alertRoutes from "./src/routes/alerts.js";
@@ -37,6 +38,9 @@ const asyncHandler =
 
 // Health check (no auth required)
 app.use(healthRoutes);
+
+// Auth routes (login/logout - no auth required)
+app.use(authRoutes);
 
 // Ingest pipeline (no zone auth required for simplicity, but in production add zone validation)
 app.use(ingestRoutes);
