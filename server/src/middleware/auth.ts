@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { pool } from "../db/index.js";
+import { isTokenBlacklisted } from "../lib/redis.js";
 
 declare global {
   namespace Express {
@@ -24,12 +25,19 @@ export async function authMiddleware(
     // Try JWT token first (new auth flow)
     const authHeader = req.headers.authorization;
     let userId: string | null = null;
+    let token: string | null = null;
 
     if (authHeader && authHeader.startsWith("Bearer ")) {
-      const token = authHeader.slice(7);
+      token = authHeader.slice(7);
       const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-key";
 
       try {
+        // Check if token is blacklisted (logged out)
+        const blacklisted = await isTokenBlacklisted(token);
+        if (blacklisted) {
+          return res.status(401).json({ error: "Token has been revoked" });
+        }
+
         const decoded = jwt.verify(token, JWT_SECRET) as {
           userId: string;
           email: string;

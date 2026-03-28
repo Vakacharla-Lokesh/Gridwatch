@@ -1,5 +1,7 @@
 import { Server } from 'socket.io';
 import type { Server as HTTPServer } from 'http';
+import { createAdapter } from '@socket.io/redis-adapter';
+import { redis, getRedisStatus } from '../lib/redis.js';
 
 /**
  * Socket.IO real-time server
@@ -28,6 +30,21 @@ export function initializeIO(server: HTTPServer): Server {
       credentials: true,
     },
   });
+
+  // Use Redis adapter if available (enables multi-instance scaling)
+  if (redis) {
+    const redisStatus = getRedisStatus();
+    console.log(`🔴 [Redis] Adapter ${redisStatus.available ? 'enabled' : 'disabled'}`);
+    
+    try {
+      io.adapter(createAdapter(redis, redis));
+      console.log(`✅ [Socket.IO] Redis adapter configured for multi-instance scaling`);
+    } catch (error) {
+      console.warn(`⚠️  [Socket.IO] Failed to configure Redis adapter:`, error);
+    }
+  } else {
+    console.log(`⚠️  [Socket.IO] Redis not configured - using in-memory adapter (single instance only)`);
+  }
 
   io.on('connection', (socket) => {
     console.log(`📡 [Socket.IO] Client connected: ${socket.id}`);

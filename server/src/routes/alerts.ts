@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { pool } from '../db/index.js';
 import { zoneGuard, supervisorOnly } from '../middleware/auth.js';
+import { cacheGet, cacheSet, cacheDel } from '../lib/redis.js';
 import {
   acknowledgeAlert,
   resolveAlert,
@@ -29,6 +30,15 @@ router.get('/api/alerts', zoneGuard, async (req: Request, res: Response) => {
 
     const status = req.query.status || 'open';
     const limit = Math.min(Number(req.query.limit) || 50, 500);
+
+    // Build cache key based on user role, zones, status, and limit
+    const cacheKey = `alerts:${req.user.role}:${(req.user.zones || []).sort().join(',')}:${status}:${limit}`;
+
+    // Try to get from cache first
+    const cached = await cacheGet(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
 
     const userZones =
       req.user.role === 'supervisor' ? [] : req.user.zones;
@@ -71,6 +81,9 @@ router.get('/api/alerts', zoneGuard, async (req: Request, res: Response) => {
     params.push(limit);
 
     const result = await pool.query(query, params);
+
+    // Cache for 2 minutes (shorter than sensors since alerts change more frequently)
+    await cacheSet(cacheKey, result.rows, 120);
 
     res.json(result.rows);
   } catch (error) {
@@ -175,6 +188,14 @@ router.patch(
       // req.user is guaranteed to exist and have an id string from auth middleware
       // @ts-ignore - Express types conflict
       await acknowledgeAlert(alertId, req.user!.id);
+
+      // Invalidate alerts cache after state change
+      if (req.user.role === 'supervisor') {
+        await cacheDel(`alerts:supervisor:::${req.query.status || 'open'}:`);
+      } else {
+        const zoneKey = (req.user.zones || []).sort().join(',');
+        await cacheDel(`alerts:operator:${zoneKey}:${req.query.status || 'open'}:`);
+      }
 
       res.json({ status: 'acknowledged' });
     } catch (error) {

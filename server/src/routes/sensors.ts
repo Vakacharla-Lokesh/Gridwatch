@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { pool } from "../db/index.js";
 import { zoneGuard } from "../middleware/auth.js";
+import { cacheGet, cacheSet } from "../lib/redis.js";
 
 const router = Router();
 
@@ -19,6 +20,15 @@ router.get("/api/sensors", zoneGuard, async (req: Request, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    // Build cache key based on user role and zones
+    const cacheKey = `sensors:${req.user.role}:${(req.user.zones || []).sort().join(',')}`;
+
+    // Try to get from cache first
+    const cached = await cacheGet(cacheKey);
+    if (cached) {
+      return res.json(cached);
     }
 
     // Build zone filter
@@ -53,6 +63,9 @@ router.get("/api/sensors", zoneGuard, async (req: Request, res: Response) => {
     query += " ORDER BY current_state DESC, last_reading_at DESC";
 
     const result = await pool.query(query, params);
+
+    // Cache for 5 minutes
+    await cacheSet(cacheKey, result.rows, 300);
 
     res.json(result.rows);
   } catch (error) {

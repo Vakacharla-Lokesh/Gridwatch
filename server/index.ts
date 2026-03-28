@@ -12,6 +12,7 @@ import { shutdown } from "./src/db/index.js";
 import { startPatternAbsenceWorker } from "./src/workers/patternAbsence.js";
 import { startEscalationWorker } from "./src/workers/escalation.js";
 import { initializeIO, getConnectionStats } from "./src/realtime/io.js";
+import { getRedisStatus } from "./src/lib/redis.js";
 import healthRoutes from "./src/routes/health.js";
 import authRoutes from "./src/routes/auth.js";
 import ingestRoutes from "./src/routes/ingest.js";
@@ -57,10 +58,11 @@ app.use(alertRoutes);
 // Suppression routes (Phase 6)
 app.use(suppressionRoutes);
 
-// Debug: Socket.IO connection stats (Phase 5)
+// Debug: Socket.IO connection stats + Redis status (Phase 5 + Phase 9)
 app.get("/api/debug/connections", (req, res) => {
   const stats = getConnectionStats();
-  res.json({ socketIO: stats });
+  const redisStatus = getRedisStatus();
+  res.json({ socketIO: stats, redis: redisStatus });
 });
 
 // Routes

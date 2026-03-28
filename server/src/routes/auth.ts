@@ -1,10 +1,9 @@
-import { Router, type Request, type Response } from 'express';
-import jwt from 'jsonwebtoken';
-import { pool } from '../db/index.js';
-
+import { Router, type Request, type Response } from "express";
+import * as jwt from "jsonwebtoken";
+import { pool } from "../db/index.js";import { blacklistToken } from '../lib/redis.js';
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key';
-const JWT_EXPIRY = process.env.JWT_EXPIRY || '24h';
+const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-key";
+const JWT_EXPIRY = process.env.JWT_EXPIRY || "24h";
 
 interface LoginRequest {
   email: string;
@@ -25,31 +24,31 @@ interface LoginResponse {
  * Authenticate user and return JWT token
  * For demo: any email in the users table works (password verification not implemented)
  */
-router.post('/auth/login', async (req: Request, res: Response) => {
+router.post("/auth/login", async (req: Request, res: Response) => {
   try {
     const { email } = req.body as LoginRequest;
 
     if (!email) {
-      return res.status(400).json({ error: 'Email is required' });
+      return res.status(400).json({ error: "Email is required" });
     }
 
     // Look up user in database
     const result = await pool.query(
-      'SELECT id, email, role FROM users WHERE email = $1',
-      [email.toLowerCase()]
+      "SELECT id, email, role FROM users WHERE email = $1",
+      [email.toLowerCase()],
     );
 
     if (result.rows.length === 0) {
-      return res.status(401).json({ error: 'User not found' });
+      return res.status(401).json({ error: "User not found" });
     }
 
     const user = result.rows[0];
 
-    // Generate JWT token
+    // Generate JWT token - cast expiresIn to match expected type
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
       JWT_SECRET,
-      { expiresIn: JWT_EXPIRY }
+      { expiresIn: JWT_EXPIRY } as any,
     );
 
     res.json({
@@ -61,31 +60,50 @@ router.post('/auth/login', async (req: Request, res: Response) => {
       },
     } as LoginResponse);
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Login failed' });
+    console.error("Login error:", error);
+    res.status(500).json({ error: "Login failed" });
   }
 });
 
 /**
  * POST /auth/logout
- * For now just returns success (token is stored client-side)
- * In production, this would invalidate the token by adding it to a blacklist (stored in Redis)
+ * Invalidates the token by adding it to Redis blacklist
+ * Client also removes token from localStorage
  */
-router.post('/auth/logout', (req: Request, res: Response) => {
-  // Token invalidation would happen client-side by removing localStorage token
-  // Server-side token blacklisting would use Redis
-  res.json({ message: 'Logged out successfully' });
+router.post("/auth/logout", async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.slice(7);
+      const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-key";
+
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET) as { exp?: number };
+        // Calculate remaining TTL
+        const expiresIn = decoded.exp ? Math.max(0, decoded.exp - Math.floor(Date.now() / 1000)) : 86400;
+        // Blacklist the token (prevents reuse)
+        await blacklistToken(token, expiresIn);
+      } catch {
+        // Invalid token - return success anyway (user logged out)
+      }
+    }
+
+    res.json({ message: "Logged out successfully" });
+  } catch (error) {
+    console.error("Logout error:", error);
+    res.status(500).json({ error: "Logout failed" });
+  }
 });
 
 /**
  * GET /auth/me
  * Returns current user info from JWT
  */
-router.get('/auth/me', (req: Request, res: Response) => {
+router.get("/auth/me", (req: Request, res: Response) => {
   // Auth middleware will have already validated the token
   const user = (req as any).user;
   if (!user) {
-    return res.status(401).json({ error: 'Not authenticated' });
+    return res.status(401).json({ error: "Not authenticated" });
   }
   res.json({ user });
 });
