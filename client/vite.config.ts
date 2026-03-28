@@ -16,4 +16,8 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  preview: {
+    port: 5173,
+    host: "0.0.0.0",
+  },
 });

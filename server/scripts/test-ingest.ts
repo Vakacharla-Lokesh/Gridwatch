@@ -8,7 +8,7 @@
  */
 
 async function testIngest() {
-  const BASE_URL = process.env.API_URL || 'http://localhost:3001';
+  const BASE_URL = process.env.API_URL || 'http://localhost:4000';
   const SENSOR_COUNT = 5; // Number of sensors
   const READINGS_PER_SENSOR = 100; // Readings per sensor
 

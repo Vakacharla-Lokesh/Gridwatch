@@ -85,11 +85,194 @@ function generateAnomalousReading() {
   };
 }
 
+async function initializeSchema(client: any) {
+  console.log("📋 Initializing database schema...");
+  
+  try {
+    // Enable uuid extension
+    await client.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
+    
+    // Create zones table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS zones (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        name VARCHAR(255) NOT NULL UNIQUE,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create users table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        email VARCHAR(255) NOT NULL UNIQUE,
+        password_hash VARCHAR(255),
+        role VARCHAR(50) NOT NULL DEFAULT 'operator',
+        active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create user_zones table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS user_zones (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        zone_id UUID NOT NULL REFERENCES zones(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, zone_id)
+      )
+    `);
+
+    // Create sensors table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS sensors (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        zone_id UUID NOT NULL REFERENCES zones(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        current_state VARCHAR(50) NOT NULL DEFAULT 'unknown',
+        last_reading TIMESTAMP,
+        last_reading_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(zone_id, name)
+      )
+    `);
+
+    // Create readings table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS readings (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        sensor_id UUID NOT NULL REFERENCES sensors(id) ON DELETE CASCADE,
+        timestamp TIMESTAMP NOT NULL,
+        voltage NUMERIC NOT NULL,
+        current NUMERIC NOT NULL,
+        temperature NUMERIC NOT NULL,
+        has_anomaly BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_readings_sensor_timestamp 
+      ON readings(sensor_id, timestamp DESC)
+    `);
+
+    // Create sensor_rules table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS sensor_rules (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        sensor_id UUID NOT NULL REFERENCES sensors(id) ON DELETE CASCADE,
+        rule_type VARCHAR(50) NOT NULL,
+        config JSONB NOT NULL,
+        severity VARCHAR(50),
+        enabled BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create anomalies table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS anomalies (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        reading_id UUID REFERENCES readings(id) ON DELETE CASCADE,
+        sensor_id UUID NOT NULL REFERENCES sensors(id) ON DELETE CASCADE,
+        rule_id UUID REFERENCES sensor_rules(id) ON DELETE SET NULL,
+        rule_type VARCHAR(50) NOT NULL,
+        detected_at TIMESTAMP NOT NULL,
+        suppressed BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create alerts table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS alerts (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        sensor_id UUID NOT NULL REFERENCES sensors(id) ON DELETE CASCADE,
+        anomaly_id UUID REFERENCES anomalies(id) ON DELETE CASCADE,
+        severity VARCHAR(50) NOT NULL,
+        title VARCHAR(255),
+        description TEXT,
+        status VARCHAR(50) NOT NULL DEFAULT 'active',
+        escalated BOOLEAN DEFAULT false,
+        suppressed BOOLEAN DEFAULT false,
+        assigned_to UUID REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        resolved_at TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create suppressions table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS suppressions (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        sensor_id UUID NOT NULL REFERENCES sensors(id) ON DELETE CASCADE,
+        rule_id UUID REFERENCES sensor_rules(id) ON DELETE CASCADE,
+        reason VARCHAR(255),
+        suppressed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        suppressed_until TIMESTAMP,
+        created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create escalations table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS escalations (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        alert_id UUID NOT NULL REFERENCES alerts(id) ON DELETE CASCADE,
+        escalation_level INT NOT NULL DEFAULT 1,
+        escalated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        escalated_to UUID REFERENCES users(id) ON DELETE SET NULL,
+        status VARCHAR(50) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create escalation_log table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS escalation_log (
+        alert_id UUID PRIMARY KEY REFERENCES alerts(id) ON DELETE CASCADE,
+        escalated_to UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create alert_audit_log table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS alert_audit_log (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        alert_id UUID NOT NULL REFERENCES alerts(id) ON DELETE CASCADE,
+        from_status VARCHAR(50),
+        to_status VARCHAR(50),
+        changed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    console.log("   ✓ Schema initialized\n");
+  } catch (error) {
+    console.error("   ✗ Schema initialization failed:", error);
+    throw error;
+  }
+}
+
 async function seed() {
   const client = await pool.connect();
 
   try {
     console.log("🌱 Starting GridWatch seed...\n");
+    
+    // Initialize schema first
+    await initializeSchema(client);
 
     // ============ ZONES ============
     console.log("📍 Creating zones...");
@@ -127,6 +310,13 @@ async function seed() {
     );
     const zone_north = zones.find((z: any) => z.name === "North");
     const zone_south = zones.find((z: any) => z.name === "South");
+
+    if (!zone_north || !zone_south) {
+      throw new Error("Failed to find North or South zone");
+    }
+    if (!op_north || !op_south) {
+      throw new Error("Failed to find operator users");
+    }
 
     await client.query(
       `

@@ -37,9 +37,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const getApiUrl = () => import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
   const verifyToken = async (token: string) => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/me`, {
+      const response = await fetch(`${getApiUrl()}/auth/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (response.ok) {
@@ -62,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string) => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
+      const response = await fetch(`${getApiUrl()}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),

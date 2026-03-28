@@ -11,7 +11,7 @@
  * 5. Verifies sensor state is updated
  */
 
-const BASE_URL = process.env.API_URL || 'http://localhost:3001';
+const BASE_URL = process.env.API_URL || 'http://localhost:4000';
 
 async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));

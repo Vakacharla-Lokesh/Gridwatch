@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState, useRef } from "react";
 import io, { Socket } from "socket.io-client";
+import { useAuth } from "@/lib/auth";
 
 /**
  * Hook for Socket.IO real-time updates
@@ -25,25 +26,29 @@ import io, { Socket } from "socket.io-client";
  * ```
  */
 
-const SOCKET_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+const SOCKET_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 export interface UseSocketOptions {
   userId?: string;
   role?: "operator" | "supervisor";
   zones?: string[];
   autoConnect?: boolean;
+  skipAuth?: boolean; // if true, skip auth requirement check
 }
 
 export function useSocket(options: UseSocketOptions = {}) {
-  const { userId, role, zones = [], autoConnect = true } = options;
+  const { userId, role, zones = [], autoConnect = true, skipAuth = false } = options;
 
   const [, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
 
+  // Only connect if we have user data OR skipAuth is true
+  const shouldConnect = autoConnect && (skipAuth || (userId && role));
+
   useEffect(() => {
-    if (!autoConnect) return;
+    if (!shouldConnect) return;
 
     try {
       const newSocket = io(SOCKET_URL, {
@@ -85,7 +90,7 @@ export function useSocket(options: UseSocketOptions = {}) {
       console.error("Failed to initialize Socket.IO:", message);
       setError(message);
     }
-  }, [userId, role, zones, autoConnect]);
+  }, [shouldConnect, userId, role, zones]);
 
   // eslint-disable-next-line react-hooks/refs
   return { socket: socketRef.current, isConnected, error };
@@ -118,7 +123,13 @@ export interface SensorStateEvent {
 }
 
 export function useSensorUpdates() {
-  const { socket, isConnected } = useSocket();
+  const { user } = useAuth();
+  const { socket, isConnected } = useSocket({
+    userId: user?.id,
+    role: user?.role,
+    zones: [], // TODO: Get zones from user or API
+    skipAuth: false,
+  });
   const [sensors, setSensors] = useState<SensorStateEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -180,7 +191,13 @@ export interface AlertEvent {
 }
 
 export function useAlertUpdates() {
-  const { socket, isConnected } = useSocket();
+  const { user } = useAuth();
+  const { socket, isConnected } = useSocket({
+    userId: user?.id,
+    role: user?.role,
+    zones: [], // TODO: Get zones from user or API
+    skipAuth: false,
+  });
   const [alerts, setAlerts] = useState<AlertEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -226,7 +243,13 @@ export interface SuppressionEvent {
 }
 
 export function useSuppressionUpdates() {
-  const { socket, isConnected } = useSocket();
+  const { user } = useAuth();
+  const { socket, isConnected } = useSocket({
+    userId: user?.id,
+    role: user?.role,
+    zones: [], // TODO: Get zones from user or API
+    skipAuth: false,
+  });
   const [suppressions, setSuppressions] = useState<SuppressionEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -270,7 +293,13 @@ export function useSocketEvent<T = any>(
   event: string,
   handler: (data: T) => void,
 ): void {
-  const { socket, isConnected } = useSocket();
+  const { user } = useAuth();
+  const { socket, isConnected } = useSocket({
+    userId: user?.id,
+    role: user?.role,
+    zones: [], // TODO: Get zones from user or API
+    skipAuth: false,
+  });
 
   useEffect(() => {
     if (!socket || !isConnected) return;

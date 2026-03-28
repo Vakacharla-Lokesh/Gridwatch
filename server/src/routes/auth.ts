@@ -1,6 +1,7 @@
-import { Router, type Request, type Response } from "express";
+import { Router, type Request, type Response, type NextFunction } from "express";
 import * as jwt from "jsonwebtoken";
 import { pool } from "../db/index.js";
+import { authMiddleware } from "../middleware/auth.js";
 import { blacklistToken } from "../lib/redis.js";
 import { getEnv } from "../config/env.js";
 
@@ -100,8 +101,9 @@ router.post("/auth/logout", async (req: Request, res: Response) => {
 /**
  * GET /auth/me
  * Returns current user info from JWT
+ * Protected route - requires valid token
  */
-router.get("/auth/me", (req: Request, res: Response) => {
+router.get("/auth/me", authMiddleware, (req: Request, res: Response) => {
   // Auth middleware will have already validated the token
   const user = (req as any).user;
   if (!user) {

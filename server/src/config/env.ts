@@ -33,7 +33,7 @@ interface EnvironmentConfig {
  */
 function parseEnv(): EnvironmentConfig {
   const nodeEnv = (process.env.NODE_ENV || 'development') as 'development' | 'production' | 'test';
-  const port = parseInt(process.env.PORT || '3001', 10);
+  const port = parseInt(process.env.PORT || '4000', 10);
 
   // Database configuration
   const databaseUrl = process.env.DATABASE_URL;

@@ -60,8 +60,8 @@ export async function checkPatternAbsence(): Promise<void> {
 
       // Create anomaly for pattern absence (no reading_id since this is absence)
       const anomalyResult = await pool.query(
-        `INSERT INTO anomalies (reading_id, sensor_id, rule_id, rule_type, suppressed)
-         VALUES (NULL, $1, $2, 'pattern_absence', false)
+        `INSERT INTO anomalies (reading_id, sensor_id, rule_id, rule_type, detected_at, suppressed)
+         VALUES (NULL, $1, $2, 'pattern_absence', NOW(), false)
          RETURNING id`,
         [sensor.sensor_id, sensor.rule_id]
       );

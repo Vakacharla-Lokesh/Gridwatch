@@ -5,7 +5,7 @@ import type {
   Suppression,
 } from './types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 // Utility to get auth token (from localStorage for now, in production would use secure cookies)
 function getAuthToken(): string {

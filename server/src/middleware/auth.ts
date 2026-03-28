@@ -92,7 +92,7 @@ export function zoneGuard(req: Request, res: Response, next: NextFunction) {
   }
 
   const requestedZoneId =
-    req.query.zone_id || req.params.zone_id || req.body.zone_id;
+    req.query.zone_id || req.params.zone_id || req.body?.zone_id;
 
   if (requestedZoneId && !req.user.zones.includes(requestedZoneId as string)) {
     return res.status(403).json({ error: "Forbidden - Zone access denied" });
