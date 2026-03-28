@@ -10,6 +10,8 @@ import morgan from "morgan";
 import { authMiddleware } from "./src/middleware/auth.js";
 import { shutdown } from "./src/db/index.js";
 import { startPatternAbsenceWorker } from "./src/workers/patternAbsence.js";
+import { startEscalationWorker } from "./src/workers/escalation.js";
+import { initializeIO, getConnectionStats } from "./src/realtime/io.js";
 import healthRoutes from "./src/routes/health.js";
 import ingestRoutes from "./src/routes/ingest.js";
 import sensorRoutes from "./src/routes/sensors.js";
@@ -47,6 +49,12 @@ app.use(sensorRoutes);
 // Alert routes (Phase 3+)
 app.use(alertRoutes);
 
+// Debug: Socket.IO connection stats (Phase 5)
+app.get("/api/debug/connections", (req, res) => {
+  const stats = getConnectionStats();
+  res.json({ socketIO: stats });
+});
+
 // Routes
 app.get("/api/sensors", (req, res) => {
   res.json({ message: "Sensors endpoint - Phase 2" });
@@ -75,8 +83,12 @@ const server = app.listen(port, async () => {
   console.log(`✅ Server running at http://localhost:${port}`);
   console.log(`📊 Health check: http://localhost:${port}/health`);
 
+  // Initialize Socket.IO (Phase 5)
+  initializeIO(server);
+
   // Start background workers
   startPatternAbsenceWorker();
+  startEscalationWorker();
 });
 
 // Graceful shutdown

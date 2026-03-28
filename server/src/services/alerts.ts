@@ -1,4 +1,5 @@
 import { pool } from '../db/index.js';
+import { emitAlertEvent } from '../realtime/emitter.js';
 
 /**
  * Alert service
@@ -7,7 +8,15 @@ import { pool } from '../db/index.js';
  * - Create alerts from anomalies (unless suppressed)
  * - Assign to zone operators
  * - Track audit log
+ * - Enforce state machine (open → acknowledged/resolved, acknowledged → resolved)
  */
+
+// Valid state transitions - only forward transitions allowed
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  open: ['acknowledged', 'resolved'],
+  acknowledged: ['resolved'],
+  resolved: [],
+};
 
 export interface Alert {
   id: string;
@@ -113,6 +122,26 @@ export async function createAlert(
       [alert.id]
     );
 
+    // Get sensor name for real-time event
+    const sensorNameResult = await pool.query(
+      'SELECT name FROM sensors WHERE id = $1',
+      [sensorId]
+    );
+    const sensorName = sensorNameResult.rows[0]?.name || `Sensor ${sensorId}`;
+
+    // Emit real-time event (Phase 5)
+    emitAlertEvent({
+      alert_id: alert.id,
+      sensor_id: sensorId,
+      zone_id: sensorResult.rows[0].zone_id,
+      type: 'created',
+      severity: alert.severity,
+      sensor_name: sensorName,
+      assigned_to: alert.assigned_to,
+      status: alert.status,
+      timestamp: new Date().toISOString(),
+    });
+
     console.log(
       `🚨 [Alerts] Created alert ${alert.id} (${severity}) for anomaly ${anomalyId}`
     );
@@ -153,19 +182,63 @@ export async function acknowledgeAlert(
 ): Promise<void> {
 
   try {
+    // Get current status and alert details
+    const currentResult = await pool.query(
+      `SELECT status, sensor_id, severity FROM alerts WHERE id = $1`,
+      [alertId]
+    );
+
+    if (currentResult.rows.length === 0) {
+      throw new Error(`Alert ${alertId} not found`);
+    }
+
+    const currentStatus = currentResult.rows[0].status;
+    const sensorId = currentResult.rows[0].sensor_id;
+    const severity = currentResult.rows[0].severity;
+
+    // Validate transition
+    if (!VALID_TRANSITIONS[currentStatus]?.includes('acknowledged')) {
+      throw new Error(
+        `Invalid transition: cannot acknowledge alert with status '${currentStatus}'`
+      );
+    }
+
     await pool.query(
-      `UPDATE alerts SET status = 'acknowledged' WHERE id = $1 AND status = 'open'`,
+      `UPDATE alerts SET status = 'acknowledged' WHERE id = $1`,
       [alertId]
     );
 
     // Log in audit
     await pool.query(
       `INSERT INTO alert_audit_log (alert_id, changed_by, from_status, to_status)
-       VALUES ($1, $2, 'open', 'acknowledged')`,
-      [alertId, userId]
+       VALUES ($1, $2, $3, 'acknowledged')`,
+      [alertId, userId, currentStatus]
     );
 
-    console.log(`✅ [Alerts] Alert ${alertId} acknowledged`);
+    // Get sensor + zone info for real-time event
+    const sensorResult = await pool.query(
+      'SELECT name, zone_id FROM sensors WHERE id = $1',
+      [sensorId]
+    );
+
+    if (sensorResult.rows.length > 0) {
+      const { name, zone_id } = sensorResult.rows[0];
+      
+      // Emit real-time event (Phase 5)
+      emitAlertEvent({
+        alert_id: alertId,
+        sensor_id: sensorId,
+        zone_id,
+        type: 'acknowledged',
+        severity,
+        sensor_name: name || `Sensor ${sensorId}`,
+        assigned_to: userId,
+        status: 'acknowledged',
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    console.log(`✅ [Alerts] Alert ${alertId} acknowledged by ${userId}`);
   } catch (error) {
     console.error(`Error acknowledging alert ${alertId}:`, error);
     throw error;
@@ -181,22 +254,63 @@ export async function resolveAlert(
 ): Promise<void> {
 
   try {
-    const result = await pool.query(
-      `UPDATE alerts SET status = 'resolved' WHERE id = $1
-       RETURNING status`,
+    // Get current status and alert details
+    const currentResult = await pool.query(
+      `SELECT status, sensor_id, severity FROM alerts WHERE id = $1`,
       [alertId]
     );
 
-    const previousStatus = result.rows.length > 0 ? result.rows[0].status : 'unknown';
+    if (currentResult.rows.length === 0) {
+      throw new Error(`Alert ${alertId} not found`);
+    }
+
+    const currentStatus = currentResult.rows[0].status;
+    const sensorId = currentResult.rows[0].sensor_id;
+    const severity = currentResult.rows[0].severity;
+
+    // Validate transition
+    if (!VALID_TRANSITIONS[currentStatus]?.includes('resolved')) {
+      throw new Error(
+        `Invalid transition: cannot resolve alert with status '${currentStatus}'`
+      );
+    }
+
+    await pool.query(
+      `UPDATE alerts SET status = 'resolved' WHERE id = $1`,
+      [alertId]
+    );
 
     // Log in audit
     await pool.query(
       `INSERT INTO alert_audit_log (alert_id, changed_by, from_status, to_status)
        VALUES ($1, $2, $3, 'resolved')`,
-      [alertId, userId, previousStatus]
+      [alertId, userId, currentStatus]
     );
 
-    console.log(`✅ [Alerts] Alert ${alertId} resolved`);
+    // Get sensor + zone info for real-time event
+    const sensorResult = await pool.query(
+      'SELECT name, zone_id FROM sensors WHERE id = $1',
+      [sensorId]
+    );
+
+    if (sensorResult.rows.length > 0) {
+      const { name, zone_id } = sensorResult.rows[0];
+      
+      // Emit real-time event (Phase 5)
+      emitAlertEvent({
+        alert_id: alertId,
+        sensor_id: sensorId,
+        zone_id,
+        type: 'resolved',
+        severity,
+        sensor_name: name || `Sensor ${sensorId}`,
+        assigned_to: userId,
+        status: 'resolved',
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    console.log(`✅ [Alerts] Alert ${alertId} resolved by ${userId}`);
   } catch (error) {
     console.error(`Error resolving alert ${alertId}:`, error);
     throw error;

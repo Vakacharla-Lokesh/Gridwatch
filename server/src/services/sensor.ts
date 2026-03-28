@@ -1,4 +1,5 @@
 import { pool } from '../db/index.js';
+import { emitSensorStateChange } from '../realtime/emitter.js';
 
 /**
  * Sensor state management service
@@ -40,6 +41,25 @@ export async function updateSensorState(
   state: 'healthy' | 'warning' | 'critical' | 'silent'
 ): Promise<void> {
   try {
+    // Fetch sensor info for real-time event
+    const sensorResult = await pool.query(
+      'SELECT id, name, zone_id, current_state FROM sensors WHERE id = $1',
+      [sensorId]
+    );
+
+    if (sensorResult.rows.length === 0) {
+      console.warn(`Sensor ${sensorId} not found`);
+      return;
+    }
+
+    const sensor = sensorResult.rows[0];
+
+    // Only update if state actually changed
+    if (sensor.current_state === state) {
+      return;
+    }
+
+    // Update database
     const result = await pool.query(
       'UPDATE sensors SET current_state = $1 WHERE id = $2',
       [state, sensorId]
@@ -47,7 +67,20 @@ export async function updateSensorState(
 
     if (result.rowCount === 0) {
       console.warn(`Sensor ${sensorId} not found`);
+      return;
     }
+
+    // Emit real-time event (Phase 5)
+    emitSensorStateChange({
+      sensor_id: sensorId,
+      zone_id: sensor.zone_id,
+      name: sensor.name || `Sensor ${sensorId}`,
+      state,
+      timestamp: new Date().toISOString(),
+      severity: state === 'silent' ? 'warning' : state,
+    });
+
+    console.log(`📡 [Sensor] ${sensor.name} state changed to ${state}`);
   } catch (error) {
     console.error(`Error updating sensor state for ${sensorId}:`, error);
     throw error;
